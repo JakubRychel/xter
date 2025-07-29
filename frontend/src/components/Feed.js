@@ -1,17 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { getPosts } from '../services/posts';
+import React, { useState } from 'react';
 import CreatePostForm from '../components/CreatePostForm';
 import Post from './Post';
-import NestedPost from './NestedPost';
 import { useAuth } from '../contexts/AuthContext';
 
 
-function Feed() {
+function Feed({ data, parent=null }) {
   const { user } = useAuth();
 
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [posts, setPosts] = useState(data);
 
   const addToFeed = post => {
     setPosts(prev => [post, ...prev]);
@@ -21,56 +17,34 @@ function Feed() {
     setPosts(prev => prev.filter(post => post.id !== id));
   };
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const data = await getPosts();
-        setPosts(data);
-      }
-      catch (error) {
-        setError(error.message);
-      }
-      finally {
-        setLoading(false);
-      }
-    }
+  const likeInFeed = id => {
+    setPosts(prev => prev.map(post => post.id === id ? {
+      ...post,
+      likes: [...post.likes, user.id],
+      likes_count: post.likes_count + 1
+    } : post))
+  }
 
-    fetchPosts();
-  }, []);
-
-  if (loading) return (<>
-    <div className="text-center">
-      <div className="spinner-border" role="status">
-        <span className="visually-hidden">Loading...</span>
-      </div>      
-    </div>
-  </>);
+  const unlikeInFeed = id => {
+    setPosts(prev => prev.map(post => post.id === id ? {
+      ...post,
+      likes: post.likes.filter(like => like !== user.id),
+      likes_count: post.likes_count - 1
+    } : post))
+  }
 
   return (<>
-    <CreatePostForm addToFeed={addToFeed} />
+    <CreatePostForm parent={parent} addToFeed={addToFeed} />
 
     {posts && posts.map(post => (
       <Post
         key={post.id}
-        id={post.id}
-        author={post.author}
-        authorId={post.author_id}
-        time={post.published_at}
-        liked={post.likes.includes(user.id)}
-        likes={post.likes_count}
-        deleteFromFeed={deleteFromFeed}
-      >
-        {post.content}
-        {post.parent && (
-          <NestedPost
-            key={post.parent.id}
-            author={post.parent.author}
-            time={post.parent.time}
-          >
-            {post.parent.content}
-          </NestedPost>
-        )}
-      </Post>
+        post={post}
+        like={likeInFeed}
+        unlike={unlikeInFeed}
+        remove={deleteFromFeed}
+        isReply={parent ? true : false}
+      />
     ))}
   </>);
 }

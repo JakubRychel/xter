@@ -6,7 +6,7 @@ export const getPosts = async () => {
 };
 
 export const getPost = async postId => {
-  const response = await api.get(`posts/${postId}`);
+  const response = await api.get(`posts/${postId}/`);
   return response.data;
 }
 

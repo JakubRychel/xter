@@ -10,7 +10,7 @@ function CreatePostForm({ parent=null, addToFeed }) {
     event.preventDefault();
 
     const token = localStorage.getItem('access');
-    const postData = { content, parent: null };
+    const postData = { content, parent_id: parent };
 
     try {
       const post = await createPost(postData, token);
@@ -35,7 +35,7 @@ function CreatePostForm({ parent=null, addToFeed }) {
         <textarea
           placeholder="Napisz coś"
           className="form-control"
-          rows="4"
+          rows="3"
           value={content}
           onChange={event => setContent(event.target.value)}
         />
