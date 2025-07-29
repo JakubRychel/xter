@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPost } from '../services/posts';
 
-function CreatePostForm({ parent=null }) {
+function CreatePostForm({ parent=null, addToFeed }) {
   const [content, setContent] = useState('');
 
   const [error, setError] = useState('');
@@ -13,7 +13,8 @@ function CreatePostForm({ parent=null }) {
     const postData = { content, parent: null };
 
     try {
-      await createPost(postData, token);
+      const post = await createPost(postData, token);
+      addToFeed(post);
       setContent('');
     }
     catch (error) {

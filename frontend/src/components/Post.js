@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { deletePost, likePost, unlikePost } from '../services/posts';
 
-function Post({ id, children, author, authorId, time, liked=false, likes=0 }) {
+function Post({ id, children, author, authorId, time, liked=false, likes=0, deleteFromFeed }) {
   const { user } = useAuth();
 
   const [isLiked, setIsLiked] = useState(liked);
@@ -18,7 +18,9 @@ function Post({ id, children, author, authorId, time, liked=false, likes=0 }) {
 
   const handleDelete = () => {
     const token = localStorage.getItem('access');
-    deletePost(id, token);
+    deletePost(id, token)
+      .then(response => deleteFromFeed(id))
+      .catch(error => console.error(error));
   };
 
   return(<>
@@ -40,7 +42,7 @@ function Post({ id, children, author, authorId, time, liked=false, likes=0 }) {
             : <><i className="bi bi-heart-fill"></i> Lubię to</>
           }
         </button>
-        Lubi to {likes} osób
+        Lubi to {likes + (liked ? -1 : 0) + (isLiked ? 1 : 0)} osób
         { user.id === authorId && (<>
           <button
             className="btn btn-sm d-inline-block btn-outline-danger"
