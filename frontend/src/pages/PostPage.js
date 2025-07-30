@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getPost } from '../services/posts';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import Post from '../components/Post';
 
 function PostPage() {
@@ -34,6 +34,10 @@ function PostPage() {
 
   useEffect(() => {
     const fetchPost = async () => {
+      setPost({});
+      setLoading(true);
+      setError('');
+
       try {
         const data = await getPost(postId);
         setPost(data);
@@ -47,7 +51,7 @@ function PostPage() {
     }
 
     fetchPost();
-  }, []);
+  }, [postId]);
 
   if (loading) return (<>
     <div className="text-center">
@@ -57,7 +61,7 @@ function PostPage() {
     </div>
   </>);
 
-  return <Post post={post} like={like} unlike={unlike} remove={remove} showReplies={true} />
+  return <Post key={postId} post={post} like={like} unlike={unlike} remove={remove} showReplies={true} />
 
 }
 

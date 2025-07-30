@@ -44,7 +44,7 @@ function Post({ post, like=null, unlike=null, remove=null, showReplies=false, is
       <div className="card-body">
         {post.content}
 
-        {post.parent && !isReply && <Post post={post.parent} />}
+        {post.parent && !isReply && <Post key={post.parent.id} post={post.parent} />}
       </div>
 
       {post.likes && (<>
