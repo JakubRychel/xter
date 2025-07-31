@@ -1,7 +1,12 @@
 import api from './api';
 
-export const getPosts = async () => {
-  const response = await api.get('posts/');
+export const getPosts = async (parent=null, cursor=null) => {
+  const params = new URLSearchParams();
+
+  if (parent) params.append('parent_id', parent);
+  if (cursor) params.append('cursor', cursor);
+
+  const response = await api.get('posts/' + (params.toString() ? '?' + params.toString() : ''));
   return response.data;
 };
 

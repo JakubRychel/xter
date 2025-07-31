@@ -3,13 +3,28 @@ from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.pagination import CursorPagination
 from .models import Post
 from .serializers import PostSerializer
 
+class PostCursorPagination(CursorPagination):
+    page_size = 10
+    ordering = '-published_at'
+
 class PostViewSet(viewsets.ModelViewSet):
-    queryset = Post.objects.all().order_by('-published_at')
+    queryset = Post.objects.all()
     serializer_class = PostSerializer
+    pagination_class = PostCursorPagination
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        queryset = Post.objects.all().order_by('-published_at')
+        parent_id = self.request.query_params.get('parent_id')
+
+        if parent_id is not None:
+            queryset = queryset.filter(parent_id=parent_id)
+
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)

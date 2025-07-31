@@ -32,25 +32,24 @@ function PostPage() {
 
   const remove = () => navigate('/');
 
-  useEffect(() => {
-    const fetchPost = async () => {
-      setPost({});
-      setLoading(true);
-      setError('');
+  const loadPost = async () => {
+    setLoading(true);
 
-      try {
-        const data = await getPost(postId);
-        setPost(data);
-      }
-      catch (error) {
-        setError(error.message);
-      }
-      finally {
-        setLoading(false);
-      }
+    try {
+      const data = await getPost(postId);
+
+      setPost(data);
     }
+    catch (error) {
+      setError(error.message);
+    }
+    finally {
+      setLoading(false);
+    }
+  };
 
-    fetchPost();
+  useEffect(() => {
+    loadPost();
   }, [postId]);
 
   if (loading) return (<>
@@ -61,7 +60,7 @@ function PostPage() {
     </div>
   </>);
 
-  return <Post key={postId} post={post} like={like} unlike={unlike} remove={remove} showReplies={true} />
+  return <Post post={post} like={like} unlike={unlike} remove={remove} showReplies={true} />
 
 }
 

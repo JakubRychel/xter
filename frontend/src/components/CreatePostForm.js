@@ -6,9 +6,7 @@ function CreatePostForm({ parent=null, addToFeed }) {
 
   const [error, setError] = useState('');
 
-  const handleSubmit = async event => {
-    event.preventDefault();
-
+  const submit = async () => {
     const token = localStorage.getItem('access');
     const postData = { content, parent_id: parent };
 
@@ -20,7 +18,20 @@ function CreatePostForm({ parent=null, addToFeed }) {
     catch (error) {
       setError(error.message);
     }
-  }
+  };
+
+  const handleSubmit = event => {
+    event.preventDefault();
+    submit();
+  };
+
+  const handleKeyDown = event => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      submit();
+    }
+  };
+
 
 	return (<>
 		<form onSubmit={handleSubmit}>
@@ -38,6 +49,7 @@ function CreatePostForm({ parent=null, addToFeed }) {
           rows="3"
           value={content}
           onChange={event => setContent(event.target.value)}
+          onKeyDown={handleKeyDown}
         />
       </div>
       <div className="mb-3">

@@ -7,8 +7,6 @@ import Feed from './Feed';
 function Post({ post, like=null, unlike=null, remove=null, showReplies=false, isReply=false }) {
   const { user } = useAuth();
 
-  const [error, setError] = useState('');
-
   const handleLike = () => {
     const token = localStorage.getItem('access');
 
@@ -37,17 +35,17 @@ function Post({ post, like=null, unlike=null, remove=null, showReplies=false, is
     <div className="card mb-3">
       
       <div className="card-header">
-        <h5 className="card-title">{post.author}</h5>
+        <h5 className="card-title">{post.author_username}</h5>
         <div>{post.published_at}</div>        
       </div>
 
       <div className="card-body">
         {post.content}
 
-        {post.parent && !isReply && <Post key={post.parent.id} post={post.parent} />}
+        {post.parent && !isReply && <Post post={post.parent} />}
       </div>
 
-      {post.likes && (<>
+      {post.likes && user && (<>
         <div className="card-footer d-flex gap-2 align-items-baseline">
           
           {post.likes.includes(user.id) ? (<>
@@ -73,7 +71,7 @@ function Post({ post, like=null, unlike=null, remove=null, showReplies=false, is
             <i className="bi bi-chat-fill"></i> {post.replies_count}
           </Link>
 
-          {user.id === post.author_id && (<>
+          {user && user.id === post.author_id && (<>
             <button
               className="btn rounded-pill d-inline-block btn-outline-danger ms-auto"
               data-bs-toggle="modal"
@@ -105,7 +103,7 @@ function Post({ post, like=null, unlike=null, remove=null, showReplies=false, is
       
       {showReplies && (
         <div className="card-body">
-          <Feed data={post.replies} parent={post.id} />
+          <Feed parent={post.id} />
         </div>
       )}
 
