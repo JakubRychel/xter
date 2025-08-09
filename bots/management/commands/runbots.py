@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 import random
 import schedule
 import time
+import os
 from django.contrib.auth import get_user_model
 from posts.models import Post
 from ...models import Bot
@@ -10,7 +11,7 @@ from google.api_core.exceptions import ResourceExhausted
 from recommendations.logic import get_recommended_posts
 from transformers import pipeline
 
-API_KEY = 'AIzaSyBYZReEMC8bh8n_B0K5O3iT4cg-PlO_Zww'
+API_KEY = os.environ.get('GEMINI_API_KEY')
 genai.configure(api_key=API_KEY)
 
 model = genai.GenerativeModel('gemini-1.5-flash')
