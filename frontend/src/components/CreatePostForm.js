@@ -42,7 +42,7 @@ function CreatePostForm({ parent=null, addToFeed }) {
         </div>
       </>)}
 
-      <div className="mb-3">
+      <div className="my-3">
         <textarea
           placeholder="Napisz coś"
           className="form-control"
@@ -52,7 +52,7 @@ function CreatePostForm({ parent=null, addToFeed }) {
           onKeyDown={handleKeyDown}
         />
       </div>
-      <div className="mb-3">
+      <div className="my-3">
         <button type="submit" className="btn btn-primary">Wyślij</button>
       </div>
 		</form>

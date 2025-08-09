@@ -19,6 +19,7 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/post/:postId" element={<PostPage />} />
+              <Route path="/@:username" element={<>hamara</>} />
             </Routes>                 
           </div>
         </div>

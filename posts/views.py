@@ -6,6 +6,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import CursorPagination
 from .models import Post
 from .serializers import PostSerializer
+from recommendations.logic import register_like_or_post, register_unlike, register_reply, get_recommended_posts
 
 class PostCursorPagination(CursorPagination):
     page_size = 10
@@ -18,16 +19,20 @@ class PostViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        queryset = Post.objects.all().order_by('-published_at')
         parent_id = self.request.query_params.get('parent_id')
 
         if parent_id is not None:
-            queryset = queryset.filter(parent_id=parent_id)
+            return Post.objects.filter(parent_id=parent_id).order_by('-published_at')
 
-        return queryset
+        return get_recommended_posts(self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        instance = serializer.save(author=self.request.user)
+
+        register_like_or_post(self.request.user, instance.content)
+
+        if instance.parent is not None:
+            register_reply(self.request.user, instance.parent.content, instance.content)
 
     def perform_destroy(self, instance):
         if instance.author != self.request.user and not self.request.user.is_staff:
@@ -38,10 +43,16 @@ class PostViewSet(viewsets.ModelViewSet):
     def like(self, request, pk=None):
         post = self.get_object()
         post.likes.add(request.user)
+
+        register_like_or_post(request.user, post.content)
+
         return Response({'status': 'post_liked'})
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def unlike(self, request, pk=None):
         post = self.get_object()
         post.likes.remove(request.user)
+
+        register_unlike(request.user, post.content)
+
         return Response({'status': 'post_unliked'})

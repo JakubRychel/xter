@@ -4,12 +4,13 @@ from .models import Post
 class BasePostSerializer(serializers.ModelSerializer):
     author_id = serializers.ReadOnlyField(source='author.id')
     author_username = serializers.ReadOnlyField(source='author.username')
+    author_displayed_name = serializers.ReadOnlyField(source='author.displayed_name')
 
     published_at = serializers.DateTimeField(format='%d %b %Y, %H:%M', read_only=True)
 
     class Meta:
         model = Post
-        fields = ['id', 'author_id', 'author_username', 'content', 'published_at']
+        fields = ['id', 'author_id', 'author_username', 'author_displayed_name', 'content', 'published_at']
 
 class PostSerializer(BasePostSerializer):
     likes = serializers.PrimaryKeyRelatedField(read_only=True, many=True)
