@@ -19,7 +19,6 @@ Xter is a social media application inspired by Twitter, designed to allow users 
    cd xter
    ```
 3. **Install Dependencies**:
-   (Assuming Python is used, since SQLite is mentioned and Node.js is only for React frontend)
    ```bash
    pip install -r requirements.txt
    ```
@@ -36,7 +35,6 @@ Xter is a social media application inspired by Twitter, designed to allow users 
    SECRET_KEY=your_secret_key
    ```
 6. **Run the Application**:
-   (Example for a Python-based backend, e.g., Django or Flask)
    ```bash
    python manage.py runserver
    ```
