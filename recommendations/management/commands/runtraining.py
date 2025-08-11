@@ -6,7 +6,7 @@ import joblib
 from django.conf import settings
 from collections import defaultdict
 from sklearn.linear_model import SGDRegressor
-from ...models import InteractionEmbedding, UserRecommendationModel, GlobalRecommendationModel
+from ...models import Interaction, UserRecommendationModel, GlobalRecommendationModel
 
 def save_model(X, y, user_id, name):
     if user_id is not None:
@@ -37,23 +37,23 @@ def save_model(X, y, user_id, name):
     model_obj.save()
 
 def train_models():
-    embeddings = list(InteractionEmbedding.objects.filter(used_in_model=False))
+    interactions = list(Interaction.objects.filter(used_in_model=False))
 
-    if not embeddings:
+    if not interactions:
         return
 
-    X_global = [list(e.embedding) for e in embeddings]
-    y_global = [e.label for e in embeddings]
+    X_global = [list(i.embedding.embedding) for i in interactions]
+    y_global = [i.label for i in interactions]
 
     save_model(X_global, y_global, name='default')
     
-    embeddings_by_user = defaultdict(list)
+    interactions_by_user = defaultdict(list)
 
-    for e in embeddings:
-        embeddings_by_user[e.user_id].append(e)
+    for i in interactions:
+        interactions_by_user[i.embedding.user_id].append(i)
 
-    for user_id, interactions in embeddings_by_user.items():
-        X = [list(i.embedding) for i in interactions]
+    for user_id, interactions in interactions_by_user.items():
+        X = [list(i.embedding.embedding) for i in interactions]
         y = [i.label for i in interactions]
 
         save_model(X, y, user_id=user_id)
@@ -61,7 +61,7 @@ def train_models():
         for i in interactions:
             i.used_in_model = True
 
-    InteractionEmbedding.objects.bulk_update(embeddings, ['used_in_model'])
+    Interaction.objects.bulk_update(interactions, ['used_in_model'])
 
 class Command(BaseCommand):
     help = 'Run recommendations training'

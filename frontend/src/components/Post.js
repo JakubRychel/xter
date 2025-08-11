@@ -51,10 +51,10 @@ function Post({ post, like=null, unlike=null, remove=null, showReplies=false, is
 
         {post.parent && !isReply && <Post post={post.parent} />}
 
-        {post.likes && user && (<>
+        {post.liked_by && user && (<>
           <div className="my-3 d-flex gap-2 align-items-baseline">
             
-            {post.likes.includes(user.id) ? (<>
+            {post.liked_by.includes(user.id) ? (<>
               <button
                 className="btn rounded-pill d-inline-block btn-primary"
                 onClick={handleUnlike}

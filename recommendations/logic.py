@@ -3,7 +3,7 @@ from django.db.models import Case, When
 from sentence_transformers import SentenceTransformer
 from transformers import pipeline
 from posts.models import Post
-from .models import InteractionEmbedding, UserRecommendationModel, GlobalRecommendationModel
+from .models import Interaction, PostEmbedding, UserRecommendationModel, GlobalRecommendationModel
 import joblib
 from datetime import timedelta
 
@@ -40,34 +40,38 @@ def get_reply_alignment(post, reply):
 
     return result
 
+def register_post(user, post):
+    post_embedding = post.embedding
 
-def register_like_or_post(user, post):
-    post_embedding = get_text_embedding(post)
+    Interaction.objects.create(
+        embedding=post_embedding,
+        label=1
+    )
 
-    InteractionEmbedding.objects.create(
-        user=user,
+def register_like(user, post):
+    post_embedding = post.embedding
+
+    Interaction.objects.create(
         embedding=post_embedding,
         label=1
     )
 
 def register_unlike(user, post):
-    post_embedding = get_text_embedding(post)
+    post_embedding = post.embedding
 
-    InteractionEmbedding.objects.create(
-        user=user,
+    Interaction.objects.create(
         embedding=post_embedding,
         label=0
     )
 
 def register_reply(user, original_post, reply_post):
-    original_post_embedding = get_text_embedding(original_post)
+    original_post_embedding = original_post.embedding
 
-    alignment = get_reply_alignment(original_post, reply_post)
+    alignment = get_reply_alignment(original_post.content, reply_post.content)
 
-    label = 0.5 + 0.5 * alignment.scores[0]
+    label = 0.5 + 0.5 * alignment['scores'][0]
 
-    InteractionEmbedding.objects.create(
-        user=user,
+    Interaction.objects.create(
         embedding=original_post_embedding,
         label=label
     )
@@ -80,9 +84,16 @@ def get_recommended_posts(user):
         recent_posts = recent_posts.exclude(author=user)
 
     if not recent_posts.exists():
-        return Post.objects.none()
+        return Post.objects.all().order_by('-published_at')
     
-    embeddings = [get_text_embedding(post.content) for post in recent_posts]
+    def get_embedding(post):
+        try:
+            return post.embedding.embedding
+        except PostEmbedding.DoesNotExist:
+            embedding_obj = PostEmbedding.objects.create(post=post, embedding=get_text_embedding(post.content))
+            return embedding_obj.embedding
+    
+    embeddings = [get_embedding(post) for post in recent_posts]
 
     try:
         model_obj = UserRecommendationModel.objects.get(user=user)

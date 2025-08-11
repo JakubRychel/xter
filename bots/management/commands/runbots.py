@@ -11,10 +11,10 @@ from google.api_core.exceptions import ResourceExhausted
 from recommendations.logic import get_recommended_posts
 from transformers import pipeline
 
-API_KEY = os.environ.get('GEMINI_API_KEY')
+API_KEY = os.getenv('GOOGLE_API_KEY')
 genai.configure(api_key=API_KEY)
 
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-2.5-flash-lite')
 
 User = get_user_model()
 
@@ -43,16 +43,25 @@ BOT_DESCRIPTIONS = [
 
 classifier = pipeline('zero-shot-classification', model='MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli')
 
-def get_post_alignment(post, personality):
+def get_thread_alignment(thread, personality):
     """
     Funckja zwraca słownik 'result' gdzie w 'result.scores' jest lista trzech wartości odpowiadających etykietom
     """
-    input_text = f'Post: {post}; personality: {personality}'
+    input_text = f'''
+        This is a conversation thread from a social media platform:
+
+        {thread}
+
+        The personality description of the user is as follows:
+        {personality}
+    '''
 
     result = classifier(
         input_text,
         candidate_labels=['matches', 'does not match', 'is neutral towards'],
-        hypothesis_template='Post {} the personality'
+        hypothesis_template = 'The thread content {} the style, interests, and personality of the user.',
+        truncation = True,
+        max_length = 512
     )
 
     return result
@@ -71,12 +80,14 @@ def generate_text(prompt):
 
     return None
 
-def generate_post(personality):
+def generate_post(username, displayed_name, personality):
     personality = personality or 'Jesteś neutralnym użytkownikiem.'
 
     prompt = f'''
         Jesteś użytkownikiem portalu Xter podobnego do Twittera.
 
+        Twoja nazwa użytkownika: {username}
+        Twoja nazwa: {displayed_name}
         Twoja osobowość: {personality}
 
         Napisz jedno-, dwu- lub trzyzdaniowy post, który jest zgodny z Twoją osobowością:
@@ -87,15 +98,19 @@ def generate_post(personality):
     if post is not None:
         return post
 
-def generate_reply(personality, post_content):
+def generate_reply(username, displayed_name, personality, post, thread):
     personality = personality or 'Jesteś neutralnym użytkownikiem.'
 
     prompt = f'''
         Jesteś użytkownikiem portalu Xter podobnego do Twittera.
 
+        Twoja nazwa użytkownika: {username}
+        Twoja nazwa: {displayed_name}
         Twoja osobowość: {personality}
 
-        Oto post na który odpowiadasz: {post_content}
+        Cały wątek dla kontekstu: {thread}
+        Każdy kolejny post wątku jest odpowiedzią na poprzedni post.
+        Oto post na który odpowiadasz, odpowiedz tylko na niego z uwzględnieniem kontekstu wątku jeśli jest to potrzebne: {post}
 
         Napisz jedno-, dwu- lub trzyzdaniową odpowiedź, która jest zgodna z Twoją osobowością:
     '''
@@ -104,7 +119,6 @@ def generate_reply(personality, post_content):
 
     if reply is not None:
         return reply
-
 
 def create_bot(name, personality):
     user, created = User.objects.get_or_create(
@@ -124,18 +138,21 @@ def create_bot(name, personality):
 
     return user
 
-def create_post(bot):
-    content = generate_post(bot.bot.personality)
+def get_thread_content(post):
+    def stringify_post(post):
+        return f'''
+            Autor: {post.author.displayed_name} (@{post.author.username})
+            Data publikacji: {post.published_at.strftime('%d %b %Y, %H:%M')}
+            Treść: {post.content}
+        '''
+    
+    thread = stringify_post(post)
 
-    Post.objects.create(author=bot, content=content)
+    while post.parent is not None:
+        post = post.parent
+        thread = stringify_post(post) + '\n' + thread
 
-def like_post(bot, post):
-        post.likes.add(bot)
-
-def reply_to_post(bot, post):
-    content = generate_reply(bot.bot.personality, post.content)
-
-    Post.objects.create(author=bot, content=content, parent=post)
+    return thread
 
 def run_bots():
     bots = User.objects.filter(is_bot=True)
@@ -149,31 +166,49 @@ def run_bots():
         bots = User.objects.filter(is_bot=True)
 
     for bot in bots:
-        posts = get_recommended_posts(bot)
+        posts = get_recommended_posts(bot).exclude(readed_by=bot)
 
-        if random.random() < 0.05: create_post(bot)
+        if random.random() < 0.05:
+            content = generate_post(bot.username, bot.displayed_name, bot.bot.personality) or None
+
+            if content is not None:
+                Post.objects.create(author=bot, content=content)
 
         for post in posts:
-            alignment = get_post_alignment(post.content, bot.bot.personality)
+            post.readed_by.add(bot)
+
+            thread_content = get_thread_content(post)
+
+            alignment = get_thread_alignment(thread_content, bot.bot.personality)
 
             if (alignment['scores'][0] > 0.5):
-                if alignment['scores'][0] + random.random() > 1.3: like_post(bot, post)
-                if alignment['scores'][0] + random.random() > 1.5: reply_to_post(bot, post)
+                if alignment['scores'][0] + random.random() > 1.3:
+                    post.liked_by.add(bot)
+                if alignment['scores'][0] + random.random() > 1.5:
+                    content = generate_reply(bot.username, bot.displayed_name, bot.bot.personality, post.content, thread_content)
+
+                    if content is not None:
+                        Post.objects.create(author=bot, content=content, parent=post)
 
             if (alignment['scores'][1] > 0.5):
-                if alignment['scores'][1] + random.random() > 1.8: reply_to_post(bot, post)
+                if alignment['scores'][1] + random.random() > 1.8:
+                    content = generate_reply(bot.username, bot.displayed_name, bot.bot.personality, post.content, thread_content)
+
+                    if content is not None:
+                        Post.objects.create(author=bot, content=content, parent=post)
 
 class Command(BaseCommand):
     help = 'Run bot scheduler'
 
     def handle(self, *args, **kwargs):
-        run_bots()
-        schedule.every(15).minutes.do(run_bots)
-        self.stdout.write(self.style.SUCCESS('Bot scheduler started...'))
-
         try:
+            run_bots()
+            schedule.every(15).minutes.do(run_bots)
+            self.stdout.write(self.style.SUCCESS('Bot scheduler started...'))
+
             while True:
                 schedule.run_pending()
                 time.sleep(60)
+
         except KeyboardInterrupt:
             self.stdout.write(self.style.WARNING('Bot scheduler stopped by user (Ctrl+C)'))

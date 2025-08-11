@@ -4,9 +4,13 @@ from pgvector.django import VectorField
 
 User = get_user_model()
 
-class InteractionEmbedding(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+class PostEmbedding(models.Model):
+    post = models.OneToOneField('posts.Post', on_delete=models.CASCADE, related_name='embedding')
     embedding = VectorField(dimensions=512)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+class Interaction(models.Model):
+    embedding = models.ForeignKey('PostEmbedding', on_delete=models.CASCADE)
     label = models.FloatField()
     created_at = models.DateTimeField(auto_now_add=True)
     used_in_model = models.BooleanField(default=False)

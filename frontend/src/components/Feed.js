@@ -26,7 +26,7 @@ function Feed({ parent=null }) {
   const likeInFeed = id => {
     setPosts(prev => prev.map(post => post.id === id ? {
       ...post,
-      likes: [...post.likes, user.id],
+      liked_by: [...post.liked_by, user.id],
       likes_count: post.likes_count + 1
     } : post))
   }
@@ -34,7 +34,7 @@ function Feed({ parent=null }) {
   const unlikeInFeed = id => {
     setPosts(prev => prev.map(post => post.id === id ? {
       ...post,
-      likes: post.likes.filter(like => like !== user.id),
+      liked_by: post.liked_by.filter(like => like !== user.id),
       likes_count: post.likes_count - 1
     } : post))
   }
