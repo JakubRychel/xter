@@ -17,7 +17,7 @@ function PostPage() {
   const like = () => {
     setPost(prev => ({
       ...prev,
-      likes: [...prev.likes, user.id],
+      liked_by: [...prev.liked_by, user.id],
       likes_count: prev.likes_count + 1
     }))
   }
@@ -25,7 +25,7 @@ function PostPage() {
   const unlike = () => {
     setPost(prev => ({
       ...prev,
-      likes: prev.likes.filter(like => like !== user.id),
+      liked_by: prev.liked_by.filter(like => like !== user.id),
       likes_count: prev.likes_count - 1
     }))
   }

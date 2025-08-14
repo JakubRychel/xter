@@ -5,8 +5,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import CursorPagination
 from .models import Post
 from .serializers import PostSerializer
-from recommendations.models import PostEmbedding
-from recommendations.logic import register_post, register_like, register_unlike, register_reply, get_recommended_posts, get_text_embedding
+from recommendations.tasks import register_interaction
+from recommendations.logic import get_recommended_posts
 
 class PostCursorPagination(CursorPagination):
     page_size = 10
@@ -32,13 +32,7 @@ class PostViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         instance = serializer.save(author=self.request.user)
 
-        embedding = get_text_embedding(instance.content)
-        PostEmbedding.objects.create(post=instance, embedding=embedding)
-
-        register_post(self.request.user, instance)
-
-        if instance.parent is not None:
-            register_reply(self.request.user, instance.parent, instance)
+        register_interaction.delay('post', instance.id)
 
     def perform_destroy(self, instance):
         if instance.author != self.request.user and not self.request.user.is_staff:
@@ -50,7 +44,7 @@ class PostViewSet(viewsets.ModelViewSet):
         post = self.get_object()
         post.liked_by.add(request.user)
 
-        register_like(request.user, post)
+        register_interaction.delay('like', post.id)
 
         return Response({'status': 'post_liked'})
 
@@ -59,6 +53,6 @@ class PostViewSet(viewsets.ModelViewSet):
         post = self.get_object()
         post.liked_by.remove(request.user)
 
-        register_unlike(request.user, post)
+        register_interaction.delay('unlike', post.id)
 
         return Response({'status': 'post_unliked'})
