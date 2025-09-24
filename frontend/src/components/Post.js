@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { deletePost, likePost, unlikePost } from '../services/posts';
 import { Link, useNavigate } from 'react-router';
@@ -38,7 +38,11 @@ function Post({ post, like=null, unlike=null, remove=null, showReplies=false, is
       
       <div className="card-header">
         <h5 className="card-title d-inline-flex gap-1 align-items-baseline">
-          <span className="fw-semibold">{post.author_displayed_name}</span>
+          <Link className="link-dark" to={`/@/${post.author_username}/`}>
+            <span className="fw-semibold">
+              {post.author_displayed_name}
+            </span>
+          </Link>
           <span className="text-muted">@{post.author_username}</span>
         </h5>
         <div>{post.published_at}</div>

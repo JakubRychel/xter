@@ -19,20 +19,6 @@ model = genai.GenerativeModel('gemini-2.5-flash-lite')
 
 classifier = pipeline('zero-shot-classification', model='MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli')
 
-def generate_text(prompt):
-    retries = 3
-
-    for attempt in range(retries):
-        try:
-            response = model.generate_content(prompt)
-            return response.text
-        except ResourceExhausted:
-            wait_time = 2 ** attempt
-            print(f'Przekroczony limit API, ponawianie próby za {wait_time} sekund...')
-            time.sleep(wait_time)
-
-    return None
-
 def generate_post(username, displayed_name, personality):
     personality = personality or 'Jesteś neutralnym użytkownikiem.'
 
@@ -46,10 +32,9 @@ def generate_post(username, displayed_name, personality):
         Napisz jedno-, dwu- lub trzyzdaniowy post, który jest zgodny z Twoją osobowością:
     '''
 
-    post = generate_text(prompt)
+    post = model.generate_content(prompt)
 
-    if post is not None:
-        return post
+    return post.text or None
 
 def generate_reply(username, displayed_name, personality, post, thread):
     personality = personality or 'Jesteś neutralnym użytkownikiem.'
@@ -68,10 +53,9 @@ def generate_reply(username, displayed_name, personality, post, thread):
         Napisz jedno-, dwu- lub trzyzdaniową odpowiedź, która jest zgodna z Twoją osobowością:
     '''
 
-    reply = generate_text(prompt)
+    reply = model.generate_content(prompt)
 
-    if reply is not None:
-        return reply
+    return reply.text or None
 
 def get_thread_alignment(thread, personality):
     """
@@ -112,18 +96,17 @@ def get_thread_content(post):
 
     return thread
 
-@shared_task
-def run_bot(id):
-    bot = User.objects.get(id=id)
-    posts = get_recommended_posts(bot)
+@shared_task(bind=True, max_retries=3)
+def read_post(self, post_id, bot_id):
+    post = Post.objects.get(id=post_id)
+    bot = User.objects.get(id=bot_id)
 
-    for post in posts:
-        post.readed_by.add(bot)
+    post.readed_by.add(bot)
+    thread_content = get_thread_content(post)
 
-        thread_content = get_thread_content(post)
+    alignment = get_thread_alignment(thread_content, bot.bot.personality)
 
-        alignment = get_thread_alignment(thread_content, bot.bot.personality)
-
+    try:
         if (alignment['scores'][0] > 0.5):
             if alignment['scores'][0] + random.random() > 1.3:
                 post.liked_by.add(bot)
@@ -139,3 +122,29 @@ def run_bot(id):
 
                 if content is not None:
                     Post.objects.create(author=bot, content=content, parent=post)
+    except ResourceExhausted:
+        countdown = 2 ** self.request.retries
+        raise self.retry(countdown=countdown, exc=ResourceExhausted('Google API quota exceeded, retrying...'))
+
+@shared_task(bind=True, max_retries=3)
+def write_post(self, bot_id):
+    bot = User.objects.get(id=bot_id)
+
+    try:
+        content = generate_post(bot.username, bot.displayed_name, bot.bot.personality)
+
+        if content is not None:
+            Post.objects.create(author=bot, content=content)
+    except ResourceExhausted:
+        countdown = 2 ** self.request.retries
+        raise self.retry(countdown=countdown, exc=ResourceExhausted('Google API quota exceeded, retrying...'))
+
+@shared_task
+def run_bot(id):
+    bot = User.objects.get(id=id)
+    posts = get_recommended_posts(bot).exclude(readed_by=bot)
+
+    if random.random() < 0.05: write_post.delay(bot.id)
+
+    for post in posts:
+        read_post.delay(post.id, bot.id)

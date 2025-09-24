@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage';
 import MainPage from './pages/MainPage';
 import RegisterPage from './pages/RegisterPage';
 import PostPage from './pages/PostPage';
+import ProfilePage from './pages/ProfilePage';
 
 function App() {
   return (<>
@@ -19,7 +20,7 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/post/:postId" element={<PostPage />} />
-              <Route path="/@:username" element={<>hamara</>} />
+              <Route path="/@/:username" element={<ProfilePage />} />
             </Routes>                 
           </div>
         </div>

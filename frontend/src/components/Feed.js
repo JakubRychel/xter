@@ -5,15 +5,15 @@ import { useAuth } from '../contexts/AuthContext';
 import { getPosts } from '../services/posts';
 
 
-function Feed({ parent=null }) {
+function Feed({ author = null, parent = null }) {
   const feedRef = useRef(null);
-
   const { user } = useAuth();
 
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [next, setNext] = useState(null);
+  const [nextPage, setNextPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   const addToFeed = post => {
     setPosts(prev => [post, ...prev]);
@@ -28,39 +28,41 @@ function Feed({ parent=null }) {
       ...post,
       liked_by: [...post.liked_by, user.id],
       likes_count: post.likes_count + 1
-    } : post))
-  }
+    } : post));
+  };
 
   const unlikeInFeed = id => {
     setPosts(prev => prev.map(post => post.id === id ? {
       ...post,
       liked_by: post.liked_by.filter(like => like !== user.id),
       likes_count: post.likes_count - 1
-    } : post))
-  }
+    } : post));
+  };
 
-  const loadPosts = async (cursor=null) => {
-    if (loading || (!cursor && posts.length > 0)) return;
-    
+  const loadPosts = async (page = 1) => {
+    if (loading || !hasMore) return;
+
     setLoading(true);
 
     try {
-      const data = await getPosts(parent, cursor);
+      const data = await getPosts(author, parent, page);
 
-      setPosts(prev => cursor ? [...prev, ...data.results] : data.results);
-      setNext(data.next);
-    }
-    catch (error) {
+      setPosts(prev => page === 1 ? data.results : [...prev, ...data.results]);
+      setNextPage(page + 1);
+      setHasMore(Boolean(data.next));
+    } catch (error) {
       setError(error.message);
+    } finally {
+      setLoading(false);
     }
-    finally {
-      setLoading(false);    
-    }
-  }
+  };
 
   useEffect(() => {
-    loadPosts();
-  }, []);
+    setPosts([]);
+    setNextPage(1);
+    setHasMore(true);
+    loadPosts(1);
+  }, [author, parent]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -68,39 +70,44 @@ function Feed({ parent=null }) {
       const scrollHeight = document.documentElement.scrollHeight;
       const clientHeight = window.innerHeight;
 
-      if (scrollTop + clientHeight >= scrollHeight -1 && !loading && next) {
-        const cursor = next ? new URLSearchParams(next.split('?')[1]).get('cursor') : null;
-        loadPosts(cursor);
+      if (scrollTop + clientHeight >= scrollHeight - 1 && !loading && hasMore) {
+        loadPosts(nextPage);
       }
     };
 
     window.addEventListener('scroll', handleScroll);
 
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [loading, next]);
+  }, [loading, nextPage, hasMore]);
 
-  return (<>
-    <CreatePostForm parent={parent} addToFeed={addToFeed} />
+  return (
+    <>
+      {!author && <CreatePostForm parent={parent} addToFeed={addToFeed} />}
 
-    {posts && posts.map(post => (
-      <Post
-        key={post.id}
-        post={post}
-        like={likeInFeed}
-        unlike={unlikeInFeed}
-        remove={deleteFromFeed}
-        isReply={parent ? true : false}
-      />
-    ))}
+      {posts && posts.map(post => (
+        <Post
+          key={post.id}
+          post={post}
+          like={likeInFeed}
+          unlike={unlikeInFeed}
+          remove={deleteFromFeed}
+          isReply={!!parent}
+        />
+      ))}
 
-    {loading && (<>
-      <div className="text-center">
-        <div className="spinner-border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>      
-      </div>
-    </>)}
-  </>);
+      {loading && (
+        <div className="text-center my-3">
+          <div className="spinner-border" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      )}
+
+      {!hasMore && !loading && posts.length > 0 && (
+        <div className="text-center my-3 text-muted">No more posts</div>
+      )}
+    </>
+  );
 }
 
 export default Feed;

@@ -1,86 +1,111 @@
 from django.utils import timezone
-from django.db.models import Case, When
+from django.db.models import Case, When, IntegerField
 from sentence_transformers import SentenceTransformer
-from transformers import pipeline
 from posts.models import Post
-from .models import PostEmbedding, UserRecommendationModel, GlobalRecommendationModel
-import joblib
+from .models import PostEmbedding, GlobalEmbedding, UserEmbedding
 from datetime import timedelta
+import faiss
+import numpy as np
 
+embedding_model = SentenceTransformer('distiluse-base-multilingual-cased-v2')
 
-embedding_model = SentenceTransformer('distiluse-base-multilingual-cased-v1')
-sentiment_pipeline = pipeline('sentiment-analysis', model='bardsai/twitter-sentiment-pl-base')
-classifier = pipeline('zero-shot-classification', model='MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli')
+def retrain_user_embedding(user, interaction_type, post_id):
+    try:
+        user_embedding = user.embedding
+    except Exception:
+        try:
+            global_embedding = GlobalEmbedding.objects.first()
+            user_embedding = user.embedding = UserEmbedding.objects.create(user=user, embedding=global_embedding.embedding)
+        except Exception:
+            user_embedding = user.embedding = UserEmbedding.objects.create(user=user, embedding=[0.0] * 512)
+        user_embedding.save()
 
-def get_text_sentiment(text):
-    sentiment = sentiment_pipeline(text)[0]
+    post = Post.objects.get(id=post_id)
 
-    return {
-        'text': text,
-        'sentiment': sentiment['label'],
-        'confidence': sentiment['score']
+    try:
+        post_embedding = post.embedding
+    except PostEmbedding.DoesNotExist:
+        embedding = embedding_model.encode(post.content)
+        post_embedding = PostEmbedding.objects.create(post=post, embedding=embedding)
+        post.embedding = post_embedding
+        post.save()
+
+    user_vector = np.array(user_embedding.embedding, dtype='float32')
+    post_vector = np.array(post_embedding.embedding, dtype='float32')
+
+    alpha = {
+        'post': 0.1,
+        'like': 0.05,
+        'unlike': -0.1,
+        'reply': 0.025
     }
 
-def get_reply_alignment(post, reply):
-    """
-    Funckja zwraca słownik 'result' gdzie w 'result.scores' jest lista trzech wartości odpowiadających etykietom
-    """
-    input_text = f'Post: {post}; reply: {reply}'
+    user_vector = user_vector + alpha[interaction_type] * (post_vector - user_vector)
 
-    result = classifier(
-        input_text,
-        candidate_labels=['agrees with', 'disagrees with', 'is neutral towards'],
-        hypothesis_template='Reply {} the post'
+    user.embedding.embedding = user_vector.tolist()
+    user.embedding.save()
+
+    print(user.embedding.embedding)
+    
+def get_user_embedding(user):
+    try:
+        return user.embedding.embedding
+    except Exception:
+        return [0.0] * 512
+
+def get_initial_recommended_posts(user):
+    user_embedding = get_user_embedding(user)
+
+    now = timezone.now()
+    recent_posts = (
+        Post.objects.filter(published_at__gte=now - timedelta(days=30))
+        .select_related('embedding')
+        .only('id', 'published_at', 'embedding__embedding')
+    ) 
+
+    post_ids = []
+    embeddings = []
+
+    for post in recent_posts:
+        post_embedding, created = PostEmbedding.objects.get_or_create(post=post)
+
+        if created:
+            embedding = embedding_model.encode(post.content)
+            post_embedding.embedding = embedding
+            post_embedding.save()
+            post.embedding = post_embedding
+
+        post_ids.append(post.id)
+        embeddings.append(post_embedding.embedding)
+
+    embeddings = np.array(embeddings, dtype='float32')
+
+    d = 512
+
+    index = faiss.IndexFlatIP(d)
+    faiss.normalize_L2(embeddings)
+    index.add(embeddings)
+
+    faiss_id_to_post_id = {faiss_id: post_id for faiss_id, post_id in enumerate(post_ids)}
+
+    user_embedding = np.array([user_embedding], dtype='float32')
+    faiss.normalize_L2(user_embedding)
+
+    D, I = index.search(user_embedding, k=200) #D - odległość, I - posortowane indeksy
+
+    recommended_post_ids = [faiss_id_to_post_id[i] for i in I[0]]
+
+    recommended_posts = (
+        Post.objects.filter(id__in=recommended_post_ids)
+        .annotate(
+            _order=Case(
+                *[When(id=int(post_id), then=pos) for pos, post_id in enumerate(recommended_post_ids)],
+                output_field=IntegerField()
+            )
+        )
+        .order_by('_order')
     )
 
-    return result
+    print(recommended_post_ids, recommended_posts)
 
-def get_recommended_posts(user):
-    try:
-        now = timezone.now()
-        recent_posts = Post.objects.filter(published_at__gte=now - timedelta(days=3)).only('id', 'content')
-
-        if user.is_authenticated:
-            recent_posts = recent_posts.exclude(author=user)
-
-        if not recent_posts.exists():
-            return Post.objects.all().order_by('-published_at')
-        
-        def get_embedding(post):
-            try:
-                return post.embedding.embedding
-            except PostEmbedding.DoesNotExist:
-                embedding = embedding_model.encode(embedding_obj.post.content)
-                embedding_obj = PostEmbedding.objects.create(post=post, embedding=embedding)
-                return embedding_obj.embedding
-        
-        embeddings = [get_embedding(post) for post in recent_posts]
-
-        try:
-            model_obj = UserRecommendationModel.objects.get(user=user)
-        except (UserRecommendationModel.DoesNotExist, Exception):
-            model_obj = GlobalRecommendationModel.objects.first()
-            
-            if model_obj is None:
-                return recent_posts.order_by('-published_at')
-            
-        model_path = model_obj.model.path
-
-        try:
-            model = joblib.load(model_path)
-        except FileNotFoundError:
-            return recent_posts.order_by('-published_at')
-        
-        preds = model.predict(embeddings)
-
-        post_ids = [post.id for post in recent_posts]
-        sorted_post_ids = [post_id for post_id, _ in sorted(zip(post_ids, preds), key=lambda x: x[1], reverse=True)]
-
-        preserved_order = Case(*[
-            When(pk=post_id, then=pos) for pos, post_id in enumerate(sorted_post_ids)
-        ])
-
-        return Post.objects.filter(id__in=sorted_post_ids).order_by(preserved_order)
-    
-    except Exception as e:
-        return Post.objects.all().order_by('-published_at')
+    return recommended_posts

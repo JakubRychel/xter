@@ -66,7 +66,7 @@ class Command(BaseCommand):
                 bots = User.objects.filter(is_bot=True)
 
                 now = timezone.now()
-                next_run = (now.replace(second=0, microsecond=0) + timedelta(minutes=5 - now.minute % 5))
+                next_run = (now.replace(second=0, microsecond=0) + timedelta(minutes=30 - now.minute % 30))
 
                 for bot in bots:
                     run_bot.apply_async(args=[bot.id], eta=next_run)
