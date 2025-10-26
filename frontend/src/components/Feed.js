@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getPosts } from '../services/posts';
 
 
-function Feed({ author = null, parent = null }) {
+function Feed({ author = null, parent = null, followed = false }) {
   const feedRef = useRef(null);
   const { user } = useAuth();
 
@@ -45,7 +45,7 @@ function Feed({ author = null, parent = null }) {
     setLoading(true);
 
     try {
-      const data = await getPosts(author, parent, page);
+      const data = await getPosts(author, parent, followed, page);
 
       setPosts(prev => page === 1 ? data.results : [...prev, ...data.results]);
       setNextPage(page + 1);
@@ -62,7 +62,7 @@ function Feed({ author = null, parent = null }) {
     setNextPage(1);
     setHasMore(true);
     loadPosts(1);
-  }, [author, parent]);
+  }, [author, parent, followed]);
 
   useEffect(() => {
     const handleScroll = () => {

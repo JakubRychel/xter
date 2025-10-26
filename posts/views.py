@@ -5,7 +5,6 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
 from .models import Post
 from .serializers import PostSerializer
-from recommendations.tasks import register_interaction
 from recommendations.logic import get_initial_recommended_posts, retrain_user_embedding
 
 class PostPagePagination(PageNumberPagination):
@@ -21,12 +20,16 @@ class PostViewSet(viewsets.ModelViewSet):
         if self.action == 'list':
             parent_id = self.request.query_params.get('parent_id')
             author = self.request.query_params.get('author')
+            followed = self.request.query_params.get('followed')
 
             if author is not None:
                 return Post.objects.filter(author__username=author).order_by('-published_at')
 
             if parent_id is not None:
                 return Post.objects.filter(parent_id=parent_id).order_by('-published_at')
+            
+            if followed is not None and followed.lower() == 'true':
+                return Post.objects.filter(author__in=self.request.user.followed_users.all()).order_by('-published_at')
 
             return get_initial_recommended_posts(self.request.user)
         

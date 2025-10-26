@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
     }
     catch (error) {
-      logoutUser();
+      if (error.response.status === 401) logoutUser();
     }
   }
 
@@ -55,8 +55,8 @@ export const AuthProvider = ({ children }) => {
         const userData = await getCurrentUser(token);
         setUser(userData);
       }
-      catch {
-        logoutUser();
+      catch (error) {
+        if (error.response.status === 401) logoutUser();
       }
       finally {
         setLoading(false);

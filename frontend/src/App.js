@@ -1,7 +1,8 @@
 import React from 'react';
-import { Routes, Route } from 'react-router';
+import { Routes, Route, Navigate } from 'react-router';
 import { AuthProvider } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
+import Feed from './components/Feed';
 import LoginPage from './pages/LoginPage';
 import MainPage from './pages/MainPage';
 import RegisterPage from './pages/RegisterPage';
@@ -16,7 +17,11 @@ function App() {
         <div className="row justify-content-center py-2">
           <div className="col-6">
             <Routes>
-              <Route path="/" element={<MainPage />} />
+              <Route path="/" element={<MainPage />}>
+                <Route index element={<Navigate to="/popular" replace />} />
+                <Route path="popular" element={<Feed />} />
+                <Route path="followed" element={<Feed followed />} />
+              </Route>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/post/:postId" element={<PostPage />} />

@@ -1,14 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import LoginForm from '../components/LoginForm';
-import { Link } from 'react-router';
+import { Link, NavLink, Outlet } from 'react-router';
 import Feed from '../components/Feed';
 
 function MainPage() {
   const { user } = useAuth();
 
   return user ? (<>
-    <Feed />
+    <ul className="nav nav-tabs">
+      <li className="nav-item flex-fill text-center">
+        <NavLink to="/popular" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>Popularne</NavLink>
+      </li>
+      <li className="nav-item flex-fill text-center">
+        <NavLink to="/followed" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>Śledzeni</NavLink>
+      </li>
+    </ul>
+
+    <Outlet />
 
   </>) : (<>
     <LoginForm />

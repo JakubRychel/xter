@@ -34,10 +34,11 @@ def retrain_user_embedding(user, interaction_type, post_id):
     post_vector = np.array(post_embedding.embedding, dtype='float32')
 
     alpha = {
-        'post': 0.1,
-        'like': 0.05,
+        'post': 0.15,
+        'like': 0.1,
         'unlike': -0.1,
-        'reply': 0.025
+        'dislike': -0.15,
+        'reply': 0.05
     }
 
     user_vector = user_vector + alpha[interaction_type] * (post_vector - user_vector)
@@ -58,7 +59,7 @@ def get_initial_recommended_posts(user):
 
     now = timezone.now()
     recent_posts = (
-        Post.objects.filter(published_at__gte=now - timedelta(days=30))
+        Post.objects.filter(published_at__gte=now - timedelta(days=100))
         .select_related('embedding')
         .only('id', 'published_at', 'embedding__embedding')
     ) 
@@ -67,13 +68,12 @@ def get_initial_recommended_posts(user):
     embeddings = []
 
     for post in recent_posts:
-        post_embedding, created = PostEmbedding.objects.get_or_create(post=post)
-
-        if created:
-            embedding = embedding_model.encode(post.content)
-            post_embedding.embedding = embedding
-            post_embedding.save()
+        try:
+            post_embedding = post.embedding
+        except PostEmbedding.DoesNotExist:
+            post_embedding = PostEmbedding.objects.create(post=post, embedding=embedding_model.encode(post.content))
             post.embedding = post_embedding
+            post.save()
 
         post_ids.append(post.id)
         embeddings.append(post_embedding.embedding)
@@ -105,7 +105,5 @@ def get_initial_recommended_posts(user):
         )
         .order_by('_order')
     )
-
-    print(recommended_post_ids, recommended_posts)
 
     return recommended_posts

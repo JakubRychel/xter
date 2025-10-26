@@ -16,10 +16,6 @@ export const refresh = async token => {
 };
 
 export const getCurrentUser = async token => {
-  const response = await api.get('auth/current-user/', {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  const response = await api.get('auth/current-user/');
   return response.data;
 }

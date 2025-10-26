@@ -11,17 +11,9 @@ export const getUser = async userId => {
 }
 
 export const followUser = async (username, token) => {
-  const response = await api.post(`users/${username}/follow/`, {}, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  })
+  const response = await api.post(`users/${username}/follow/`, {})
 }
 
 export const unfollowUser = async (username, token) => {
-  const response = await api.post(`users/${username}/unfollow/`, {}, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  })
+  const response = await api.post(`users/${username}/unfollow/`, {})
 }

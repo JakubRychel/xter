@@ -1,10 +1,11 @@
 import api from './api';
 
-export const getPosts = async (author = null, parent = null, page = 1) => {
+export const getPosts = async (author = null, parent = null, followed = false, page = 1) => {
   const params = new URLSearchParams();
 
   if (author) params.append('author', author);
   else if (parent) params.append('parent_id', parent);
+  else if (followed) params.append('followed', 'true');
   if (page) params.append('page', page);
 
   const response = await api.get('posts/' + (params.toString() ? '?' + params.toString() : ''));
@@ -17,11 +18,7 @@ export const getPost = async (postId) => {
 };
 
 export const createPost = async (postData, token) => {
-  const response = await api.post('posts/', postData, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  const response = await api.post('posts/', postData);
   return response.data;
 };
 
@@ -34,17 +31,9 @@ export const deletePost = async (postId, token) => {
 };
 
 export const likePost = async (postId, token) => {
-  await api.post(`posts/${postId}/like/`, {}, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  await api.post(`posts/${postId}/like/`, {});
 };
 
 export const unlikePost = async (postId, token) => {
-  await api.post(`posts/${postId}/unlike/`, {}, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  await api.post(`posts/${postId}/unlike/`, {});
 };
