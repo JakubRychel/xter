@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useLayoutEffect } from 'react';
 import api from '../services/api';
-import axios from 'axios';
 import { login, logout, refresh, getCurrentUser } from '../services/auth';
 
 const AuthContext = createContext();
@@ -54,7 +53,6 @@ export const AuthProvider = ({ children }) => {
 
       if (error.response.status === 401 && !originalRequest._noRetry) {
         try {
-          console.log('hamaraxd0');
           const newToken = await refreshToken();
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           originalRequest._noRetry = true;
@@ -62,12 +60,10 @@ export const AuthProvider = ({ children }) => {
           return api(originalRequest);
         }
         catch (refreshError) {
-          console.error('hamaraxd1');
           return Promise.reject(refreshError);
         }
       }
 
-      console.error('hamaraxd2');
       return Promise.reject(error);
     });
 
