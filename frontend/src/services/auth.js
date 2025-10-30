@@ -5,17 +5,22 @@ export const login = async (username, password) => {
   return response.data;
 };
 
+export const logout = async () => {
+  const response = await api.post('auth/logout/', {});
+  return response.data;
+}
+
 export const register = async (username, email, password, password2) => {
   const response = await api.post('auth/register/', { username, email, password, password2 });
   return response.data;
 };
 
-export const refresh = async token => {
-  const response = await api.post('auth/token/refresh/', { refresh: token });
+export const refresh = async () => {
+  const response = await api.post('auth/token/refresh/', {}, { _noRetry: true });
   return response.data;
 };
 
-export const getCurrentUser = async token => {
+export const getCurrentUser = async () => {
   const response = await api.get('auth/current-user/');
   return response.data;
 }

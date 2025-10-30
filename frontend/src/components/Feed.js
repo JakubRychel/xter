@@ -98,13 +98,13 @@ function Feed({ author = null, parent = null, followed = false }) {
       {loading && (
         <div className="text-center my-3">
           <div className="spinner-border" role="status">
-            <span className="visually-hidden">Loading...</span>
+            <span className="visually-hidden">Ładowanie...</span>
           </div>
         </div>
       )}
 
       {!hasMore && !loading && posts.length > 0 && (
-        <div className="text-center my-3 text-muted">No more posts</div>
+        <div className="text-center my-3 text-muted">Nie ma więcej postów</div>
       )}
     </>
   );

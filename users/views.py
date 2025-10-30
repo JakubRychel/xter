@@ -1,12 +1,72 @@
 from django.shortcuts import render
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from rest_framework.decorators import action
 from rest_framework import generics, permissions, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .serializers import RegisterSerializer, UserSerializer
 
+
 User = get_user_model()
+
+
+class LogoutView(APIView):
+    def post(self, request):
+        response = Response({'detail': 'Logged out successfully.'})
+
+        response.delete_cookie(key='refresh', path='/api/auth/token/refresh/', samesite='Lax')
+
+        return response
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        refresh_token = response.data.get('refresh')
+
+        if refresh_token:
+            response.set_cookie(
+                key='refresh',
+                value=refresh_token,
+                httponly=True,
+                secure=not settings.DEBUG,
+                samesite='Lax',
+                path='/api/auth/token/refresh/',
+                max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds()
+            )
+
+            del response.data['refresh']
+
+        return response
+    
+class CustomTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        refresh_token = request.COOKIES.get('refresh')
+
+        if not refresh_token:
+            return Response({'detail': 'Refresh token not provided in cookies.'}, status=401)
+        
+        serializer = self.get_serializer(data={'refresh': refresh_token})
+        serializer.is_valid(raise_exception=True)
+
+        access_token = serializer.validated_data.get('access')
+        new_refresh_token = serializer.validated_data.get('refresh', None)
+
+        response = Response({'access': access_token})
+
+        if new_refresh_token:
+            response.set_cookie(
+                key='refresh',
+                value=new_refresh_token,
+                httponly=True,
+                secure=not settings.DEBUG,
+                samesite='Lax',
+                path='/api/auth/token/refresh/',
+                max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds()
+            )
+
+        return response
 
 class UserDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]

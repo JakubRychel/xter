@@ -1,16 +1,23 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import LoginForm from '../components/LoginForm';
 import { Link, NavLink, Outlet } from 'react-router';
-import Feed from '../components/Feed';
 
 function MainPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
-  return user ? (<>
+  if (loading) return (<>
+    <div className="text-center">
+      <div className="spinner-border" role="status">
+        <span className="visually-hidden">Ładowanie...</span>
+      </div>      
+    </div>
+  </>);
+
+  if (user) return (<>
     <ul className="nav nav-tabs">
       <li className="nav-item flex-fill text-center">
-        <NavLink to="/popular" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>Popularne</NavLink>
+        <NavLink to="/recommended" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>Polecane</NavLink>
       </li>
       <li className="nav-item flex-fill text-center">
         <NavLink to="/followed" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>Śledzeni</NavLink>
@@ -18,8 +25,9 @@ function MainPage() {
     </ul>
 
     <Outlet />
-
-  </>) : (<>
+  </>)
+  
+  return (<>
     <LoginForm />
     Nie masz konta? <Link to="/register">Zarejestruj się</Link>
   </>);

@@ -18,8 +18,8 @@ function App() {
           <div className="col-6">
             <Routes>
               <Route path="/" element={<MainPage />}>
-                <Route index element={<Navigate to="/popular" replace />} />
-                <Route path="popular" element={<Feed />} />
+                <Route index element={<Navigate to="/recommended" replace />} />
+                <Route path="recommended" element={<Feed />} />
                 <Route path="followed" element={<Feed followed />} />
               </Route>
               <Route path="/login" element={<LoginPage />} />

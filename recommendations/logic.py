@@ -45,8 +45,6 @@ def retrain_user_embedding(user, interaction_type, post_id):
 
     user.embedding.embedding = user_vector.tolist()
     user.embedding.save()
-
-    print(user.embedding.embedding)
     
 def get_user_embedding(user):
     try:
