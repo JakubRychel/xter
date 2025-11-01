@@ -1,5 +1,6 @@
 from django.utils import timezone
 from django.db.models import Case, When, IntegerField
+from django.db import transaction, IntegrityError
 from sentence_transformers import SentenceTransformer
 from posts.models import Post
 from .models import PostEmbedding, GlobalEmbedding, UserEmbedding
@@ -8,6 +9,18 @@ import faiss
 import numpy as np
 
 embedding_model = SentenceTransformer('distiluse-base-multilingual-cased-v2')
+
+def get_or_create_post_embedding(post):
+    try:
+        post_embedding = post.embedding
+    except PostEmbedding.DoesNotExist:
+        try:
+            with transaction.atomic():
+                post_embedding = PostEmbedding.objects.create(post=post, embedding=embedding_model.encode(post.content))
+        except IntegrityError:
+            post_embedding = post.embedding
+    
+    return post_embedding.embedding
 
 def retrain_user_embedding(user, interaction_type, post_id):
     try:
@@ -22,16 +35,10 @@ def retrain_user_embedding(user, interaction_type, post_id):
 
     post = Post.objects.get(id=post_id)
 
-    try:
-        post_embedding = post.embedding
-    except PostEmbedding.DoesNotExist:
-        embedding = embedding_model.encode(post.content)
-        post_embedding = PostEmbedding.objects.create(post=post, embedding=embedding)
-        post.embedding = post_embedding
-        post.save()
+    post_embedding = get_or_create_post_embedding(post)
 
     user_vector = np.array(user_embedding.embedding, dtype='float32')
-    post_vector = np.array(post_embedding.embedding, dtype='float32')
+    post_vector = np.array(post_embedding, dtype='float32')
 
     alpha = {
         'post': 0.15,
@@ -66,15 +73,10 @@ def get_initial_recommended_posts(user):
     embeddings = []
 
     for post in recent_posts:
-        try:
-            post_embedding = post.embedding
-        except PostEmbedding.DoesNotExist:
-            post_embedding = PostEmbedding.objects.create(post=post, embedding=embedding_model.encode(post.content))
-            post.embedding = post_embedding
-            post.save()
+        post_embedding = get_or_create_post_embedding(post)
 
         post_ids.append(post.id)
-        embeddings.append(post_embedding.embedding)
+        embeddings.append(post_embedding)
 
     embeddings = np.array(embeddings, dtype='float32')
 

@@ -17,23 +17,23 @@ export const getPost = async (postId) => {
   return response.data;
 };
 
-export const createPost = async (postData, token) => {
+export const createPost = async (postData) => {
   const response = await api.post('posts/', postData);
   return response.data;
 };
 
-export const deletePost = async (postId, token) => {
-  await api.delete(`posts/${postId}/`, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+export const deletePost = async (postId) => {
+  await api.delete(`posts/${postId}/`, {});
 };
 
-export const likePost = async (postId, token) => {
+export const likePost = async (postId) => {
   await api.post(`posts/${postId}/like/`, {});
 };
 
-export const unlikePost = async (postId, token) => {
+export const unlikePost = async (postId) => {
   await api.post(`posts/${postId}/unlike/`, {});
+};
+
+export const readPost = async (postId) => {
+  await api.post(`posts/${postId}/read/`, {});
 };

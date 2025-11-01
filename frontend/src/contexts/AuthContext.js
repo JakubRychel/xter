@@ -38,6 +38,7 @@ export const AuthProvider = ({ children }) => {
 
   useLayoutEffect(() => {
     const authInterceptor = api.interceptors.request.use(config => {
+
       if (token && !config._noRetry) config.headers.Authorization = `Bearer ${token}`;
       return config;
     });
@@ -49,6 +50,7 @@ export const AuthProvider = ({ children }) => {
 
   useLayoutEffect(() => {
     const refreshInterceptor = api.interceptors.response.use(response => response, async error => {
+
       const originalRequest = error.config;
 
       if (error.response.status === 401 && !originalRequest._noRetry) {

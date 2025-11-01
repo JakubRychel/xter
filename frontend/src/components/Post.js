@@ -1,37 +1,60 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { deletePost, likePost, unlikePost } from '../services/posts';
+import { deletePost, likePost, unlikePost, readPost } from '../services/posts';
 import { Link, useNavigate } from 'react-router';
 import Feed from './Feed';
 
-function Post({ post, like=null, unlike=null, remove=null, showReplies=false, isReply=false }) {
+function Post({ post, like=null, unlike=null, remove=null, read=null, showReplies=false, isReply=false }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const contentRef = useRef(null);
 
   const handleLike = () => {
-    const token = localStorage.getItem('access');
-
-    likePost(post.id, token)
+    likePost(post.id)
       .then(() => like(post.id))
       .catch(error => console.error(error));
   };
 
   const handleUnlike = () => {
-    const token = localStorage.getItem('access');
-
-    unlikePost(post.id, token)
+    unlikePost(post.id)
       .then(() => unlike(post.id))
       .catch(error => console.error(error));
   };
 
   const handleDelete = () => {
-    const token = localStorage.getItem('access');
-
-    deletePost(post.id, token)
+    deletePost(post.id)
       .then(() => remove(post.id))
       .catch(error => console.error(error));
   };
 
-  const navigate = useNavigate();
+  const handleRead = () => {
+    readPost(post.id)
+      .then(() => {
+        try { read(post.id); }
+        catch (error) {}
+      })
+      .catch(error => console.error(error));
+  }
+
+  useEffect(() => {
+    if (!user) return;
+    if (post.read_by?.includes(user.id)) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          handleRead();
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    if (contentRef.current) observer.observe(contentRef.current);
+
+    return () => {
+      if (contentRef.current) observer.unobserve(contentRef.current);
+    };
+  }, [post.id, user?.id, post.read_by]);
 
   return(<>
     <div className="card my-3" onClick={event => event.stopPropagation()}>
@@ -49,7 +72,7 @@ function Post({ post, like=null, unlike=null, remove=null, showReplies=false, is
       </div>
 
       <div className="card-body py-0">
-        <div className="my-3" role="button" onClick={() => navigate(`/post/${post.id}/`)}>
+        <div ref={contentRef} className="my-3" role="button" onClick={() => navigate(`/post/${post.id}/`)}>
           {post.content}
         </div>
 

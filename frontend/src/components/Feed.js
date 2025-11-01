@@ -39,6 +39,13 @@ function Feed({ author = null, parent = null, followed = false }) {
     } : post));
   };
 
+  const readInFeed = id => {
+    setPosts(prev => prev.map(post => post.id === id ? {
+      ...post,
+      read_by: [...post.read_by, user.id]
+    } : post));
+  } 
+
   const loadPosts = async (page = 1) => {
     if (loading || !hasMore) return;
 
@@ -50,9 +57,10 @@ function Feed({ author = null, parent = null, followed = false }) {
       setPosts(prev => page === 1 ? data.results : [...prev, ...data.results]);
       setNextPage(page + 1);
       setHasMore(Boolean(data.next));
-    } catch (error) {
+      setLoading(false);
+    }
+    catch (error) {
       setError(error.message);
-    } finally {
       setLoading(false);
     }
   };
@@ -61,7 +69,7 @@ function Feed({ author = null, parent = null, followed = false }) {
     setPosts([]);
     setNextPage(1);
     setHasMore(true);
-    loadPosts(1);
+    loadPosts();
   }, [author, parent, followed]);
 
   useEffect(() => {
@@ -91,6 +99,7 @@ function Feed({ author = null, parent = null, followed = false }) {
           like={likeInFeed}
           unlike={unlikeInFeed}
           remove={deleteFromFeed}
+          read={readInFeed}
           isReply={!!parent}
         />
       ))}

@@ -16,7 +16,7 @@ class PostSerializer(BasePostSerializer):
     liked_by = serializers.PrimaryKeyRelatedField(read_only=True, many=True)
     likes_count = serializers.SerializerMethodField()
 
-    readed_by = serializers.PrimaryKeyRelatedField(read_only=True, many=True)
+    read_by = serializers.PrimaryKeyRelatedField(read_only=True, many=True)
     reads_count = serializers.SerializerMethodField()
 
     replies_count = serializers.SerializerMethodField()
@@ -26,13 +26,13 @@ class PostSerializer(BasePostSerializer):
 
     class Meta(BasePostSerializer.Meta):
         model = Post
-        fields = BasePostSerializer.Meta.fields + ['liked_by', 'likes_count', 'readed_by', 'reads_count', 'replies_count', 'parent_id', 'parent']
+        fields = BasePostSerializer.Meta.fields + ['liked_by', 'likes_count', 'read_by', 'reads_count', 'replies_count', 'parent_id', 'parent']
 
     def get_likes_count(self, obj):
         return obj.liked_by.count()
     
     def get_reads_count(self, obj):
-        return obj.readed_by.count()
+        return obj.read_by.count()
     
     def get_replies_count(self, obj):
         return obj.replies.count()
