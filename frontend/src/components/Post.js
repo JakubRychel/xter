@@ -29,16 +29,13 @@ function Post({ post, like=null, unlike=null, remove=null, read=null, showReplie
 
   const handleRead = () => {
     readPost(post.id)
-      .then(() => {
-        try { read(post.id); }
-        catch (error) {}
-      })
+      .then(() => read(post.id))
       .catch(error => console.error(error));
   }
 
   useEffect(() => {
     if (!user) return;
-    if (post.read_by?.includes(user.id)) return;
+    if (post.read_by.includes(user.id)) return;
 
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
@@ -76,7 +73,7 @@ function Post({ post, like=null, unlike=null, remove=null, read=null, showReplie
           {post.content}
         </div>
 
-        {post.parent && !isReply && <Post post={post.parent} />}
+        {post.parent && !isReply && <Post post={post.parent} read={read} />}
 
         {post.liked_by && user && (<>
           <div className="my-3 d-flex gap-2 align-items-baseline">

@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
       return data.access;
     }
     catch (error) {
-      logoutUser();
+      //logoutUser();
       throw error;
     }
   }
@@ -82,8 +82,9 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
       catch (error) {
-        logoutUser();
+        //logoutUser();
         setLoading(false);
+        throw error;
       }
     }
     loadUser();

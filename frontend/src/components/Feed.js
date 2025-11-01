@@ -40,11 +40,23 @@ function Feed({ author = null, parent = null, followed = false }) {
   };
 
   const readInFeed = id => {
-    setPosts(prev => prev.map(post => post.id === id ? {
-      ...post,
-      read_by: [...post.read_by, user.id]
-    } : post));
-  } 
+    setPosts(prev => prev.map(post => {
+      if (post.id === id) return {
+        ...post,
+        read_by: [...post.read_by, user.id],
+        reads_count: post.reads_count + 1
+      }
+      else if (post.parent && post.parent.id === id) return {
+        ...post,
+        parent: {
+          ...post.parent,
+          read_by: [...post.parent.read_by, user.id],
+          reads_count: post.parent.reads_count + 1
+        }
+      }
+      else return post;
+    }));
+  };
 
   const loadPosts = async (page = 1) => {
     if (loading || !hasMore) return;
