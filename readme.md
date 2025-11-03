@@ -11,7 +11,7 @@ Xter is a social media application inspired by Twitter. It allows users to share
 - [Overview](#overview-)
 - [Features](#features-)
 - [Tech Stack](#tech-stack-)
-- [Installation](#installation-)
+- [Installation](#installation-%EF%B8%8F)
 - [Usage](#usage-)
 - [Project Structure](#project-structure-)
 - [API Reference](#api-reference-)
