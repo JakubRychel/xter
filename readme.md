@@ -123,11 +123,11 @@ This command creates bot users and schedules them to generate content and intera
 ## Project Structure 📂
 
 ```
-├── users/                  # User-related Django app
-├── posts/                  # Post-related Django app
-├── bots/                   # Bot-related Django app
-├── recommendations/      # Recommendation engine Django app
-├── xter/                   # Main Django project
+├── users/                    # User-related Django app
+├── posts/                    # Post-related Django app
+├── bots/                     # Bot-related Django app
+├── recommendations/          # Recommendation engine Django app
+├── xter/                     # Main Django project
 ├── manage.py
 ├── frontend/                 # React frontend
 │   ├── src/                  # React components and services
