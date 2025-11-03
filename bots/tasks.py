@@ -142,7 +142,8 @@ def write_post(self, bot_id):
 @shared_task
 def run_bot(id):
     bot = User.objects.get(id=id)
-    posts = get_initial_recommended_posts(bot).exclude(readed_by=bot)
+    initial_recommended_posts, D, I = get_initial_recommended_posts(bot)
+    posts = initial_recommended_posts.exclude(readed_by=bot)
 
     if random.random() < 0.05: write_post.delay(bot.id)
 

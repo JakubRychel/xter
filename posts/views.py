@@ -5,7 +5,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
 from .models import Post
 from .serializers import PostSerializer
-from recommendations.logic import get_initial_recommended_posts, retrain_user_embedding
+from recommendations.logic import get_recommended_posts, retrain_user_embedding
 from recommendations.tasks import create_post_embedding
 
 class PostPagePagination(PageNumberPagination):
@@ -32,7 +32,9 @@ class PostViewSet(viewsets.ModelViewSet):
             if followed is not None and followed.lower() == 'true':
                 return Post.objects.filter(author__in=self.request.user.followed_users.all()).order_by('-published_at')
 
-            return get_initial_recommended_posts(self.request.user)
+            recommended_posts = get_recommended_posts(self.request.user)
+
+            return list(recommended_posts.exclude(read_by=self.request.user)) + list(recommended_posts.filter(read_by=self.request.user))
         
         return Post.objects.all()
 

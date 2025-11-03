@@ -1,6 +1,7 @@
 from django.utils import timezone
-from django.db.models import Case, When, IntegerField
+from django.db.models import Case, When, Value, FloatField
 from django.db import transaction, IntegrityError
+from django.core.cache import cache
 from sentence_transformers import SentenceTransformer
 from posts.models import Post
 from .models import PostEmbedding, GlobalEmbedding, UserEmbedding
@@ -59,15 +60,16 @@ def get_user_embedding(user):
     except Exception:
         return [0.0] * 512
 
-def get_initial_recommended_posts(user):
+def get_initial_recommended_post_ids(user):
     user_embedding = get_user_embedding(user)
 
     now = timezone.now()
     recent_posts = (
-        Post.objects.filter(published_at__gte=now - timedelta(days=100))
+        Post.objects
+        .filter(published_at__gte=now - timedelta(days=100))
         .select_related('embedding')
         .only('id', 'published_at', 'embedding__embedding')
-    ) 
+    )
 
     post_ids = []
     embeddings = []
@@ -91,19 +93,49 @@ def get_initial_recommended_posts(user):
     user_embedding = np.array([user_embedding], dtype='float32')
     faiss.normalize_L2(user_embedding)
 
-    D, I = index.search(user_embedding, k=200) #D - odległość, I - posortowane indeksy
+    D, I = index.search(user_embedding, k=200) # D - odległość, I - indeksy
 
-    recommended_post_ids = [faiss_id_to_post_id[i] for i in I[0]]
-
-    recommended_posts = (
-        Post.objects.filter(id__in=recommended_post_ids)
-        .annotate(
-            _order=Case(
-                *[When(id=int(post_id), then=pos) for pos, post_id in enumerate(recommended_post_ids)],
-                output_field=IntegerField()
-            )
-        )
-        .order_by('_order')
+    return (
+        [faiss_id_to_post_id[i] for i in I[0]],
+        {faiss_id_to_post_id[i]: D[0][n] for n, i in enumerate(I[0])}
     )
 
-    return recommended_posts
+def sigmoid(number, steepness, midpoint):
+    return 1 / (1 + np.exp(-steepness * (number - midpoint)))
+
+def get_recommended_posts(user):
+    weights = {
+        'embedding_distance': 0.45,
+        'likes_count': 0.2,
+        'comments_count': 0.1,
+        'recency': 0.2,
+        'followed_author': 0.05,
+    }
+
+    params = cache.get('recommendation_params') or {
+        'likes_steepness': 0.05, 'likes_midpoint': 5,
+        'comments_steepness': 0.1, 'comments_midpoint': 3
+    }
+
+    def calculate_score(post, distance):
+        return (
+            weights['embedding_distance'] * (1 - distance) +
+            weights['likes_count'] * sigmoid(post.liked_by.count(), params['likes_steepness'], params['likes_midpoint']) +
+            weights['comments_count'] * sigmoid(post.replies.count(), params['comments_steepness'], params['comments_midpoint']) +
+            weights['recency'] * np.exp(- (timezone.now() - post.published_at).total_seconds() / (2 * 60 * 60 * 24)) +
+            weights['followed_author'] * (1 if post.author_id in followed_users else 0)
+        )
+
+    post_ids, distances = get_initial_recommended_post_ids(user)
+    posts = Post.objects.filter(id__in=post_ids)
+
+    followed_users = set(user.followed_users.values_list('id', flat=True))
+
+    case_order = Case(
+        *[
+            When(id=post.id, then=Value(calculate_score(post, distances[post.id]))) for post in posts
+        ],
+        output_field=FloatField()
+    )
+
+    return posts.annotate(_order=case_order).order_by('-_order')
