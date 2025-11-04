@@ -1,13 +1,16 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { deletePost, likePost, unlikePost, readPost } from '../services/posts';
+import { deletePost, likePost, unlikePost, updatePost, readPost } from '../services/posts';
+import CreatePostForm from './CreatePostForm';
 import { Link, useNavigate } from 'react-router';
 import Feed from './Feed';
 
-function Post({ post, like=null, unlike=null, remove=null, read=null, showReplies=false, isReply=false }) {
+function Post({ post, like=null, unlike=null, update=null, remove=null, read=null, showReplies=false, isReply=false }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const contentRef = useRef(null);
+
+  const [editing, setEditing] = useState(false);
 
   const handleLike = () => {
     likePost(post.id)
@@ -70,7 +73,7 @@ function Post({ post, like=null, unlike=null, remove=null, read=null, showReplie
 
       <div className="card-body py-0">
         <div ref={contentRef} className="my-3" role="button" onClick={() => navigate(`/post/${post.id}/`)}>
-          {post.content}
+          {editing ? <CreatePostForm setEditing={setEditing} submitToFeed={update} post={post} /> : post.content}
         </div>
 
         {post.parent && !isReply && <Post post={post.parent} read={read} />}
@@ -106,7 +109,14 @@ function Post({ post, like=null, unlike=null, remove=null, read=null, showReplie
 
             {user && user.id === post.author_id && (<>
               <button
-                className="btn rounded-pill d-inline-block btn-outline-danger ms-auto"
+                className={`btn rounded-pill d-inline-block ${editing ? 'btn-primary' : 'btn-outline-secondary'} ms-auto`}
+                onClick={() => setEditing(prev => !prev)}
+              >
+                <i className="bi bi-pencil-square"></i> edytuj
+              </button>
+
+              <button
+                className="btn rounded-pill d-inline-block btn-outline-danger"
                 data-bs-toggle="modal"
                 data-bs-target={`#deletePostModal${post.id}`}
               >

@@ -30,6 +30,13 @@ function PostPage() {
     }))
   }
 
+  const update = (id, postData) => {
+    setPost(prev => ({
+      ...prev,
+      ...postData
+    }));
+  }
+
   const remove = () => navigate('/');
 
   const loadPost = async () => {
@@ -60,7 +67,7 @@ function PostPage() {
     </div>
   </>);
 
-  return <Post post={post} like={like} unlike={unlike} remove={remove} showReplies={true} />
+  return <Post post={post} like={like} unlike={unlike} update={update} remove={remove} showReplies={true} />
 
 }
 

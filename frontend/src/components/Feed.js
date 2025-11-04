@@ -19,6 +19,13 @@ function Feed({ author = null, parent = null, followed = false }) {
     setPosts(prev => [post, ...prev]);
   };
 
+  const updateInFeed = (id, postData) => {
+    setPosts(prev => prev.map(post => post.id === id ? {
+      ...post,
+      ...postData
+    } : post));
+  };
+
   const deleteFromFeed = id => {
     setPosts(prev => prev.filter(post => post.id !== id));
   };
@@ -102,7 +109,7 @@ function Feed({ author = null, parent = null, followed = false }) {
 
   return (
     <>
-      {!author && <CreatePostForm parent={parent} addToFeed={addToFeed} />}
+      {!author && <CreatePostForm parent={parent} submitToFeed={addToFeed} />}
 
       {posts && posts.map(post => (
         <Post
@@ -110,6 +117,7 @@ function Feed({ author = null, parent = null, followed = false }) {
           post={post}
           like={likeInFeed}
           unlike={unlikeInFeed}
+          update={updateInFeed}
           remove={deleteFromFeed}
           read={readInFeed}
           isReply={!!parent}

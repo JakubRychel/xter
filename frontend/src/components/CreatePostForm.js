@@ -1,14 +1,28 @@
 import React, { useRef, useState } from 'react';
-import { createPost } from '../services/posts';
+import { createPost, updatePost } from '../services/posts';
 
-function CreatePostForm({ parent=null, addToFeed }) {
-  const [content, setContent] = useState('');
+function CreatePostForm({ parent=null, setEditing=null, submitToFeed, post=null }) {
+  const [content, setContent] = useState(post?.content || '');
   const [error, setError] = useState('');
 
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState('1%');
 
   const timerRef = useRef(null);
+
+  const handleCreate = () => {
+    createPost({ content, parent_id: parent })
+      .then(createdPost => submitToFeed(createdPost))
+      .catch(error => console.error(error))
+      .finally(() => setProgress('100%'));
+  }
+
+  const handleUpdate = () => {
+    updatePost(post.id, { content })
+      .then(updatedPost => submitToFeed(post.id, updatedPost))
+      .catch(error => console.error(error))
+      .finally(() => setProgress('100%'));
+  };
 
   const submit = async () => {
     if (timerRef.current) {
@@ -17,24 +31,22 @@ function CreatePostForm({ parent=null, addToFeed }) {
 
     setSending(true);
 
-    const postData = { content, parent_id: parent };
-
     try {
-      const post = await createPost(postData);
-      addToFeed(post);
-      setProgress('100%');
+      post ? handleUpdate() : handleCreate();
 
       timerRef.current = setTimeout(() => {
         setSending(false);
         setContent('');
         setProgress('1%');
+        if (setEditing) setEditing(false);
         timerRef.current = null;
-      }, 300);
+      }, 200);
     }
     catch (error) {
       setSending(false);
       setContent('');
       setProgress('1%');
+      if (setEditing) setEditing(false);
       setError(error.message);
     }
   }
@@ -53,7 +65,7 @@ function CreatePostForm({ parent=null, addToFeed }) {
 
 
 	return (<>
-		<form onSubmit={handleSubmit}>
+		<form onSubmit={handleSubmit} onClick={event => event.stopPropagation()}>
 
       {error && (<>
         <div className="alert alert-danger" role="alert">
@@ -69,14 +81,14 @@ function CreatePostForm({ parent=null, addToFeed }) {
               className="progress-bar"
               style={{
                 width: `${progress}`,
-                transition: 'width .3s ease-in-out'
+                transition: 'width .2s ease-in-out'
               }}
             ></div>
           </div>
         </>)}
         
         <textarea
-          placeholder="Napisz coś"
+          placeholder="Napisz coś..."
           className="form-control"
           rows="3"
           value={content}
@@ -84,7 +96,7 @@ function CreatePostForm({ parent=null, addToFeed }) {
           onKeyDown={handleKeyDown}
           disabled={sending}
         />
-        
+
       </div>
       <div className="my-3">
         <button type="submit" className="btn btn-primary">Wyślij</button>

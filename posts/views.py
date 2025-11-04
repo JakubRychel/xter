@@ -47,6 +47,23 @@ class PostViewSet(viewsets.ModelViewSet):
         else:
             retrain_user_embedding(self.request.user, 'post', instance.id)
 
+    def perform_update(self, serializer):
+        post = self.get_object()
+        if post.author != self.request.user and not self.request.user.is_staff:
+            raise PermissionDenied('You can edit only your own post.')
+        
+        if serializer.validated_data.get('parent', post.parent) != post.parent:
+            raise PermissionDenied('You cannot change the parent of a reply.')
+
+        instance = serializer.save()
+
+        create_post_embedding.delay(instance.id)
+
+        if instance.parent:
+            retrain_user_embedding(self.request.user, 'reply', instance.parent.id)
+        else:
+            retrain_user_embedding(self.request.user, 'post', instance.id)
+
     def perform_destroy(self, instance):
         if instance.author != self.request.user and not self.request.user.is_staff:
             raise PermissionDenied('You can delete only your own post.')

@@ -15,6 +15,7 @@ Xter is a social media application inspired by Twitter. It allows users to share
 - [Usage](#usage-)
 - [Project Structure](#project-structure-)
 - [API Reference](#api-reference-)
+- [To Do](#to-do-)
 - [License](#license-)
 - [Important Links](#important-links-)
 - [Footer](#footer-)
@@ -151,6 +152,13 @@ The API endpoints are defined using Django REST Framework. Here are some key end
 - **Posts Read**: `POST /api/posts/<id>/read/`
 - **Follow User**: `POST /api/users/<username>/follow/`
 - **Unfollow User**: `POST /api/users/<username>/unfollow/`
+
+## To Do 🚧
+
+- Move some tasks/data to redis/celery
+- Add cache for recommended posts
+- Fix auth context at page refresh
+- Write tests
 
 ## License 📜
 

@@ -22,6 +22,11 @@ export const createPost = async (postData) => {
   return response.data;
 };
 
+export const updatePost = async (postId, postData) => {
+  const response = await api.patch(`posts/${postId}/`, postData);
+  return response.data;
+}
+
 export const deletePost = async (postId) => {
   await api.delete(`posts/${postId}/`, {});
 };
