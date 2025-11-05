@@ -112,7 +112,7 @@ function Post({ post, like=null, unlike=null, update=null, remove=null, read=nul
                 className={`btn rounded-pill d-inline-block ${editing ? 'btn-primary' : 'btn-outline-secondary'} ms-auto`}
                 onClick={() => setEditing(prev => !prev)}
               >
-                <i className="bi bi-pencil-square"></i> edytuj
+                <i className="bi bi-pencil-fill"></i> edytuj
               </button>
 
               <button

@@ -10,18 +10,14 @@ function CreatePostForm({ parent=null, setEditing=null, submitToFeed, post=null 
 
   const timerRef = useRef(null);
 
-  const handleCreate = () => {
-    createPost({ content, parent_id: parent })
-      .then(createdPost => submitToFeed(createdPost))
-      .catch(error => console.error(error))
-      .finally(() => setProgress('100%'));
+  const handleCreate = async () => {
+    const createdPost = await createPost({ content, parent_id: parent });
+    submitToFeed(createdPost);
   }
 
-  const handleUpdate = () => {
-    updatePost(post.id, { content })
-      .then(updatedPost => submitToFeed(post.id, updatedPost))
-      .catch(error => console.error(error))
-      .finally(() => setProgress('100%'));
+  const handleUpdate = async () => {
+    const updatedPost = await updatePost(post.id, { content });
+    submitToFeed(post.id, updatedPost);
   };
 
   const submit = async () => {
@@ -32,7 +28,8 @@ function CreatePostForm({ parent=null, setEditing=null, submitToFeed, post=null 
     setSending(true);
 
     try {
-      post ? handleUpdate() : handleCreate();
+      post ? await handleUpdate() : await handleCreate();
+      setProgress('100%');
 
       timerRef.current = setTimeout(() => {
         setSending(false);

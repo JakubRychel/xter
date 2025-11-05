@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from celery import shared_task
 from transformers import pipeline
 from posts.models import Post
-from recommendations.logic import get_initial_recommended_posts
+from recommendations.logic import get_recommended_posts
 
 import google.generativeai as genai
 from google.api_core.exceptions import ResourceExhausted
@@ -142,10 +142,10 @@ def write_post(self, bot_id):
 @shared_task
 def run_bot(id):
     bot = User.objects.get(id=id)
-    initial_recommended_posts, D, I = get_initial_recommended_posts(bot)
-    posts = initial_recommended_posts.exclude(readed_by=bot)
+    recommended_posts = get_recommended_posts(bot)
+    posts = recommended_posts.exclude(readed_by=bot, author=bot)
 
-    if random.random() < 0.05: write_post.delay(bot.id)
+    if random.random() < 0.1: write_post.delay(bot.id)
 
     for post in posts:
         read_post.delay(post.id, bot.id)
