@@ -32,9 +32,10 @@ class PostViewSet(viewsets.ModelViewSet):
             if followed is not None and followed.lower() == 'true':
                 return Post.objects.filter(author__in=self.request.user.followed_users.all()).order_by('-published_at')
 
-            recommended_posts = get_recommended_posts(self.request.user)
+            if self.request.user.is_authenticated:
+                recommended_posts = get_recommended_posts(self.request.user)
 
-            return list(recommended_posts.exclude(read_by=self.request.user)) + list(recommended_posts.filter(read_by=self.request.user))
+                return list(recommended_posts.exclude(read_by=self.request.user)) + list(recommended_posts.filter(read_by=self.request.user))
         
         return Post.objects.all()
 

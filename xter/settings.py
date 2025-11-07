@@ -61,7 +61,8 @@ INSTALLED_APPS = [
     'users',
     'posts',
     'bots',
-    'recommendations'
+    'recommendations',
+    'notifications',
 ]
 
 MIDDLEWARE = [
