@@ -36,6 +36,34 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const connectWebSocket = path => {
+    const url = `ws://${window.location.host}/ws/${path}/`;
+
+    const createWS = currentToken => {
+      return new WebSocket(url, currentToken);
+    };
+
+    let ws = createWS(token);
+
+    ws.onopen = event => console.log("WebSocket OPEN:", event);
+    ws.onmessage = event => console.log("WebSocket MESSAGE:", event.data);
+    ws.onerror = event => console.error("WebSocket ERROR:", event);
+    ws.onclose = async event => {
+      console.log("WebSocket CLOSE:", event);
+      if (event.code === 4001) {
+        try {
+          const newToken = await refreshToken();
+          ws = createWS(newToken);
+        }
+        catch (error) {
+          console.error('WebSocket reconnection failed:', error);
+        }
+      }
+    };
+
+    return ws;
+  };
+
   useLayoutEffect(() => {
     const authInterceptor = api.interceptors.request.use(config => {
 
@@ -91,7 +119,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login: loginUser, logout: logoutUser, loading }}>
+    <AuthContext.Provider value={{ connectWebSocket, user, login: loginUser, logout: logoutUser, loading }}>
       {children}
     </AuthContext.Provider>
   );

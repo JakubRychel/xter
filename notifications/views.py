@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Notification
+from .models import Notification, Event
 from .serializers import NotificationSerializer
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -10,15 +10,24 @@ class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Notification.objects.filter(recipient=self.request.user).order_by('-created_at')
+        return Notification.objects.filter(recipient=self.request.user)
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def mark_as_seen(self, request, pk=None):
         notification = self.get_object()
-        
-        if notification.seen:
-            return Response({'status': 'already_seen'})
-        
-        self.get_queryset().filter(pk=notification.pk, seen=False).update(seen=True)
 
-        return Response({'status': 'marked_as_seen'})
+        if not notification.events.filter(seen=False).exists():
+            return Response({'status': 'notification_already_seen'})
+        
+        notification.events.update(seen=True)
+        return Response({'status': 'notification_marked_as_seen'})
+    
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def mark_all_as_seen(self, request):
+        unseen_events = Event.objects.filter(notification__recipient=request.user, seen=False)
+        
+        if not unseen_events.exists():
+            return Response({'status': 'all_notifications_already_seen'})
+
+        unseen_events.update(seen=True)
+        return Response({'status': 'all_notifications_marked_as_seen'})

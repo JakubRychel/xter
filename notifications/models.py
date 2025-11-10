@@ -21,8 +21,19 @@ class Notification(models.Model):
 
     notification_type = models.CharField(choices=NOTIFICATION_TYPES)
     recipient = models.ForeignKey('users.User', related_name='notifications', on_delete=models.CASCADE)
-    seen = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
 
     related_post = models.ForeignKey('posts.Post', on_delete=models.CASCADE, null=True, blank=True)
-    related_user = models.ForeignKey('users.User', on_delete=models.CASCADE, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['notification_type', 'recipient', 'related_post'],
+                name='unique_notification_group'
+            )
+        ]
+
+class Event(models.Model):
+    notification = models.ForeignKey(Notification, related_name='events', on_delete=models.CASCADE)
+    actor = models.ForeignKey('users.User', on_delete=models.CASCADE)
+    seen = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)

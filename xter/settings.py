@@ -45,6 +45,7 @@ CELERY_TASK_ALWAYS_EAGER = False
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -56,6 +57,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'pgvector.django',
+    'channels',
 
     'frontend',
     'users',
@@ -112,7 +114,14 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'xter.wsgi.application'
+ASGI_APPLICATION = 'xter.asgi.application'
 
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {'hosts': ['redis://localhost:6379/3']},
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

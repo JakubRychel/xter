@@ -1,121 +1,122 @@
 from celery import shared_task
+from django.db import transaction
+from .utils import send_notification
 
 @shared_task
 def create_post_notifications(post_id):
     from posts.models import Post
-    from .models import Notification
+    from .models import Notification, Event
 
     try:
         post = Post.objects.select_related('author').prefetch_related('author__followers').get(id=post_id)
     except Post.DoesNotExist:
         return
     
-    followers = post.author.followers.all()
+    follower_ids = post.author.followers.values_list('id', flat=True)
 
-    notifications = [
-        Notification(
-            related_post=post,
-            recipient=follower,
+    notifications_to_create = [
+        Notification (
+            related_post_id=post.id,
+            recipient_id=fid,
             notification_type=Notification.FOLLOWED_USER_POSTED
         )
-        for follower in followers
-        if follower != post.author
+        for fid in follower_ids
     ]
 
-    Notification.objects.bulk_create(notifications)
+    Notification.objects.bulk_create(notifications_to_create, batch_size=1000, ignore_conflicts=True)
+
+    notification_ids = Notification.objects.filter(
+        related_post=post,
+        notification_type=Notification.FOLLOWED_USER_POSTED,
+        recipient_id__in=follower_ids
+    ).values_list('id', flat=True)
+
+    events_to_create = [
+        Event(
+            notification_id=nid,
+            actor=post.author
+        )
+        for nid in notification_ids
+    ]
+
+    Event.objects.bulk_create(events_to_create, batch_size=1000)
+
+    for notification_id in notification_ids:
+        send_notification(notification_id)
 
 @shared_task
 def create_reply_notification(post_id):
     from posts.models import Post
-    from .models import Notification
+    from .models import Notification, Event
 
     try:
         post = Post.objects.select_related('parent', 'parent__author').get(id=post_id)
     except Post.DoesNotExist:
         return
     
-    Notification.objects.create(
-        related_post=post,
-        recipient=post.parent.author,
-        notification_type=Notification.REPLY
-    )
+    with transaction.atomic():
+        notification, created = Notification.objects.get_or_create(
+            related_post=post,
+            recipient=post.parent.author,
+            notification_type=Notification.REPLY
+        )
+
+        Event.objects.create(notification=notification, actor=post.author)
+
+    send_notification(notification.id)
 
 @shared_task
-def create_mention_notifications(post_id, mentioned_user_ids):
+def create_mention_notification(post_id, mentioned_user_id):
     from posts.models import Post
-    from .models import Notification
-    from django.contrib.auth import get_user_model
-
-    User = get_user_model()
+    from .models import Notification, Event
 
     try:
         post = Post.objects.get(id=post_id)
     except Post.DoesNotExist:
         return
     
-    mentioned_users = User.objects.filter(id__in=mentioned_user_ids)
-
-    notifications = [
-        Notification(
+    with transaction.atomic():        
+        notification, created = Notification.objects.get_or_create(
             related_post=post,
-            recipient=user,
+            recipient_id=mentioned_user_id,
             notification_type=Notification.MENTION
         )
-        for user in mentioned_users
-        if user != post.author
-    ]
 
-    Notification.objects.bulk_create(notifications)
+        Event.objects.create(notification=notification, actor=post.author)
+
+    send_notification(notification.id)
 
 @shared_task
-def create_like_notifications(post_id, liker_user_ids):
+def create_like_notification(post_id, liker_id):
     from posts.models import Post
-    from .models import Notification
-    from django.contrib.auth import get_user_model
-
-    User = get_user_model()
+    from .models import Notification, Event
 
     try:
         post = Post.objects.get(id=post_id)
     except Post.DoesNotExist:
         return
     
-    likers = User.objects.filter(id__in=liker_user_ids)
-
-    notifications = [
-        Notification(
+    with transaction.atomic():
+        notification, created = Notification.objects.get_or_create(
             related_post=post,
             recipient=post.author,
             notification_type=Notification.LIKE
         )
-        for liker in likers
-        if liker != post.author
-    ]
 
-    Notification.objects.bulk_create(notifications)
+        Event.objects.create(notification=notification, actor_id=liker_id)
+
+    send_notification(notification.id)
 
 @shared_task
-def create_follow_notifications(followed_user_id, follower_user_ids):
-    from .models import Notification
-    from django.contrib.auth import get_user_model
-
-    User = get_user_model()
-
-    try:
-        followed_user = User.objects.get(id=followed_user_id)
-    except User.DoesNotExist:
-        return
+def create_follow_notification(follower_id, followed_user_id):
+    from .models import Notification, Event
     
-    followers = User.objects.filter(id__in=follower_user_ids)
-
-    notifications = [
-        Notification(
-            recipient=followed_user,
-            related_user=follower,
+    with transaction.atomic():
+        notification, created = Notification.objects.get_or_create(
+            recipient_id=followed_user_id,
             notification_type=Notification.FOLLOW
         )
-        for follower in followers
-        if follower != followed_user
-    ]
 
-    Notification.objects.bulk_create(notifications)
+        Event.objects.create(notification=notification, actor_id=follower_id)
+
+    send_notification(notification.id)
