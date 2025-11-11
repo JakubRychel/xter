@@ -10,7 +10,12 @@ class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Notification.objects.filter(recipient=self.request.user)
+        return (
+            Notification.objects
+            .filter(recipient=self.request.user)
+            .select_related('related_post')
+            .prefetch_related('events__actor')
+        )
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def mark_as_seen(self, request, pk=None):

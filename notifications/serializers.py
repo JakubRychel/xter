@@ -25,8 +25,7 @@ class EventSerializer(ModelSerializer):
 class NotificationSerializer(ModelSerializer):
     events = EventSerializer(many=True, read_only=True)
     related_post = PostSerializer(read_only=True)
-    related_user = UserSerializer(read_only=True)
 
     class Meta:
         model = Notification
-        fields = ['id', 'notification_type', 'related_post', 'related_user', 'events']
+        fields = ['id', 'notification_type', 'related_post', 'events']

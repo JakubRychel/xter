@@ -24,7 +24,9 @@ function Notification({ notification }) {
           >
             <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
               {notification.events[0].actor.username}
-            </Link> odpowiedział(a) na Twój post
+            </Link> odpowiedział(a) na Twój post: <span className="fw-bold">
+              {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
+            </span>
           </span>
         </li>
       </>);
@@ -40,7 +42,9 @@ function Notification({ notification }) {
           >
             <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
               {notification.events[0].actor.username}
-            </Link> polubił(a) Twój post
+            </Link> polubił(a) Twój post: <span className="fw-bold">
+              {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
+            </span>
           </span>
         </li>
       </>);
@@ -56,7 +60,7 @@ function Notification({ notification }) {
           >
             <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
               {notification.events[0].actor.username}
-            </Link> zaczął(a) Cię obserwować
+            </Link> zaczął(a) Cię obserwować 
           </span>
         </li>
       </>);
@@ -72,7 +76,9 @@ function Notification({ notification }) {
           >
             <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
               {notification.events[0].actor.username}
-            </Link> wspomniał(a) Cię w poście
+            </Link> wspomniał(a) Cię w poście: <span className="fw-bold">
+              {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
+            </span>
           </span>
         </li>
       </>);
@@ -88,7 +94,9 @@ function Notification({ notification }) {
           >
             <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
               {notification.events[0].actor.username}
-            </Link> opublikował(a) nowy post
+            </Link> opublikował(a) nowy post: <span className="fw-bold">
+              {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
+            </span>
           </span>
         </li>
       </>);
@@ -111,6 +119,10 @@ function Notifications() {
       return [newNotification, ...notifications];
     }
   };
+
+  useEffect(() => {
+    console.log('Notifications updated:', notifications);
+  }, [notifications]);
 
   useEffect(() => {
     const fetchNotifications = async () => {
