@@ -4,101 +4,44 @@ import { useNavigate, Link } from 'react-router';
 import { getNotifications, markNotificationAsSeen, markAllNotificationsAsSeen } from '../services/notifications';
 
 function Notification({ notification }) {
-  const navigate = useNavigate();
-
-  const handleNotificationClick = event => {
-    markNotificationAsSeen(notification.id)
-      .catch(error => console.error(error));
-  }
-
   switch (notification.notification_type) {
     case 'reply':
       return (<>
-        <li className="dropdown-item">
-          <span
-            className="dropdown-item-text"
-            onClick={event => {
-              handleNotificationClick(event);
-              navigate(`/post/${notification.related_post.id}`);
-            }}
-          >
-            <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
-              {notification.events[0].actor.username}
-            </Link> odpowiedział(a) na Twój post: <span className="fw-bold">
-              {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
-            </span>
-          </span>
-        </li>
+        <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
+          {notification.events[0].actor.displayed_name} (@{notification.events[0].actor.username})
+        </Link> odpowiedział(a) na Twój post: <span className="fst-italic">
+          {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
+        </span>
       </>);
     case 'like':
       return (<>
-        <li className="dropdown-item">
-          <span
-            className="dropdown-item-text"
-            onClick={event => {
-              handleNotificationClick(event);
-              navigate(`/post/${notification.related_post.id}`);
-            }}
-          >
-            <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
-              {notification.events[0].actor.username}
-            </Link> polubił(a) Twój post: <span className="fw-bold">
-              {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
-            </span>
-          </span>
-        </li>
+        <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
+          {notification.events[0].actor.displayed_name} (@{notification.events[0].actor.username})
+        </Link> polubił(a) Twój post: <span className="fst-italic">
+          {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
+        </span>
       </>);
     case 'follow':
       return (<>
-        <li className="dropdown-item">
-          <span
-            className="dropdown-item-text"
-            onClick={event => {
-              handleNotificationClick(event);
-              navigate(`/@/${notification.events[0].actor.username}`);
-            }}  
-          >
-            <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
-              {notification.events[0].actor.username}
-            </Link> zaczął(a) Cię obserwować 
-          </span>
-        </li>
+        <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
+          {notification.events[0].actor.displayed_name} (@{notification.events[0].actor.username})
+        </Link> zaczął(a) Cię obserwować 
       </>);
     case 'mention':
       return (<>
-        <li className="dropdown-item">
-          <span
-            className="dropdown-item-text"
-            onClick={event => {
-              handleNotificationClick(event);
-              navigate(`/post/${notification.related_post.id}`);
-            }}  
-          >
-            <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
-              {notification.events[0].actor.username}
-            </Link> wspomniał(a) Cię w poście: <span className="fw-bold">
-              {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
-            </span>
-          </span>
-        </li>
+        <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
+          {notification.events[0].actor.displayed_name} (@{notification.events[0].actor.username})
+        </Link> wspomniał(a) Cię w poście: <span className="fst-italic">
+          {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
+        </span>
       </>);
     case 'followed_user_posted':
       return (<>
-        <li className="dropdown-item">
-          <span
-            className="dropdown-item-text"
-            onClick={event => {
-              handleNotificationClick(event);
-              navigate(`/post/${notification.related_post.id}`);
-            }}  
-          >
-            <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
-              {notification.events[0].actor.username}
-            </Link> opublikował(a) nowy post: <span className="fw-bold">
-              {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
-            </span>
-          </span>
-        </li>
+        <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
+          {notification.events[0].actor.displayed_name} (@{notification.events[0].actor.username})
+        </Link> opublikował(a) nowy post: <span className="fst-italic">
+          {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
+        </span>
       </>);
   }
 }
@@ -108,6 +51,8 @@ function Notifications() {
   const [loading, setLoading] = useState(true);
 
   const { connectWebSocket } = useAuth();
+
+  const navigate = useNavigate();
 
   const mergeNotifications = (notifications, newNotification) => {
     const exists = notifications.find(n => n.id === newNotification.id);
@@ -120,9 +65,52 @@ function Notifications() {
     }
   };
 
-  useEffect(() => {
-    console.log('Notifications updated:', notifications);
-  }, [notifications]);
+  const handleNotificationClick = notificationData => {
+    const getPath = () => {
+      if (['reply', 'like', 'mention', 'followed_user_posted'].includes(notificationData.notification_type)) {
+        return `/post/${notificationData.related_post.id}`;
+      }
+      else if (notificationData.notification_type === 'follow') {
+        return `/@/${notificationData.events[0].actor.username}`;
+      }
+    };
+
+    markNotificationAsSeen(notificationData.id)
+      .then(() => {
+        setNotifications(prev => prev.map(notification => {
+          if (notification.id === notificationData.id) {
+            return {
+              ...notification,
+              events: notification.events.map(event => ({
+                ...event,
+                seen: true
+              }))
+            };
+          }
+          else return notification;
+        }))
+      })
+      .catch(error => console.error(error));
+    
+    navigate(getPath());
+  };
+
+  const handleMarkAllNotifictionsAsSeen = () => {
+    markAllNotificationsAsSeen()
+      .then(() => {
+        setNotifications(prev => prev.map(notification => {
+            return {
+              ...notification,
+              events: notification.events.map(event => ({
+                ...event,
+                seen: true
+              }))
+            };
+          }
+        ));
+      })
+      .catch(error => console.error(error));
+  };
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -147,18 +135,27 @@ function Notifications() {
     return () => ws.close();
   }, [connectWebSocket]);
 
+  const getUnseenCount = notifications => {
+    try {
+      return notifications.filter(notification => notification.events.some(event => !event.seen)).length;
+    }
+    catch {
+      return 0;
+    }
+  };
+
   return (<>
     <div className="dropdown">
       <button className="btn btn-primary" type="button" data-bs-toggle="dropdown">
         <i className="bi bi-bell-fill"></i>
-          {notifications && notifications.length > 0 && <>
+          {notifications && getUnseenCount(notifications) > 0 && <>
             <span className="position-absolute top-0 start-100 translate-middle badge p-1 rounded-pill bg-danger">
-              {notifications.length}
+              {getUnseenCount(notifications)}
               <span className="visually-hidden">powiadomienia</span>
             </span>
           </>}
       </button>
-      <ul className="dropdown-menu">
+      <ul className="dropdown-menu dropdown-menu-end">
         {loading ? (<>
           <li className="dropdown-item">
             <div className="text-center dropdown-item-text">
@@ -167,8 +164,26 @@ function Notifications() {
               </div>      
             </div>
           </li>
-        </>) : notifications && notifications.map(notification => <Notification key={notification.id} notification={notification} />)}
-      
+        </>) : notifications ? notifications.map(notification => (<>
+          <li
+            className={`dropdown-item${notification.events.some(event => !event.seen) ? ' bg-info-subtle' : ''}`}
+            key={notification.id}
+          >
+            <span className="dropdown-item-text" onClick={() => handleNotificationClick(notification)} role="button">
+              <Notification notification={notification} />
+            </span>
+          </li>
+        </>)) : (<>
+          <li className="dropdown-item">
+            <span className="dropdown-item-text">Brak nowych powiadomień</span>
+          </li>
+        </>)}
+        {notifications && getUnseenCount(notifications) > 0 && (<>
+          <li><hr className="dropdown-divider" /></li>
+          <li className="dropdown-item" onClick={handleMarkAllNotifictionsAsSeen} role="button">
+            Oznacz wszystkie jako przeczytane
+          </li>
+        </>)}
       </ul>
     </div>
   </>);
