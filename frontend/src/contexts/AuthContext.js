@@ -19,9 +19,9 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logoutUser = () => {
-    logout();
     setToken(null);
     setUser(null);
+    logout();
   }
 
   const refreshToken = async () => {

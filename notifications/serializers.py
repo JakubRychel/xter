@@ -1,5 +1,5 @@
-from rest_framework.serializers import ModelSerializer
-from .models import Notification, Event
+from rest_framework.serializers import ModelSerializer, SerializerMethodField
+from .models import Notification
 from posts.models import Post
 from django.contrib.auth import get_user_model
 
@@ -15,17 +15,23 @@ class PostSerializer(ModelSerializer):
         model = Post
         fields = ['id', 'content']
 
-class EventSerializer(ModelSerializer):
-    actor = UserSerializer(read_only=True)
-
-    class Meta:
-        model = Event
-        fields = ['id', 'actor', 'seen', 'created_at']
-
 class NotificationSerializer(ModelSerializer):
-    events = EventSerializer(many=True, read_only=True)
     related_post = PostSerializer(read_only=True)
+
+    latest_actors = SerializerMethodField()
+    events_count = SerializerMethodField()
+    seen = SerializerMethodField()
 
     class Meta:
         model = Notification
-        fields = ['id', 'notification_type', 'related_post', 'events']
+        fields = ['id', 'notification_type', 'related_post', 'latest_actors', 'events_count', 'seen']
+
+    def get_latest_actors(self, obj):
+        latest_events = obj.events.all().order_by('-created_at')[:3]
+        return UserSerializer([event.actor for event in latest_events], many=True).data
+
+    def get_events_count(self, obj):
+        return obj.events.count()
+    
+    def get_seen(self, obj):
+        return not obj.events.filter(seen=False).exists()

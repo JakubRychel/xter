@@ -7,38 +7,59 @@ function Notification({ notification }) {
   switch (notification.notification_type) {
     case 'reply':
       return (<>
-        <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
-          {notification.events[0].actor.displayed_name} (@{notification.events[0].actor.username})
+        <Link to={`/@/${notification.latest_actors[0].username}`} onClick={event => event.stopPropagation()}>
+          {notification.latest_actors[0].displayed_name} (@{notification.latest_actors[0].username})
         </Link> odpowiedział(a) na Twój post: <span className="fst-italic">
           {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
         </span>
       </>);
     case 'like':
       return (<>
-        <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
-          {notification.events[0].actor.displayed_name} (@{notification.events[0].actor.username})
-        </Link> polubił(a) Twój post: <span className="fst-italic">
+        {notification.latest_actors.map((actor, index) => (
+          <React.Fragment key={actor.id}>
+            <Link to={`/@/${actor.username}`} onClick={event => event.stopPropagation()}>
+              {actor.displayed_name} (@{actor.username})
+            </Link>
+            {index === notification.events_count - 2 && ' i '} 
+            {index < notification.events_count - 2 && ', '}
+          </React.Fragment>
+        ))}
+        {notification.events_count > notification.latest_actors.length
+          && `${notification.events_count - notification.latest_actors.length} innych`
+        }
+        {notification.events_count <= 1 ? ' polubił(a) Twój post: ' : ' polubili/ły Twój post: '}
+        <span className="fst-italic">
           {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
         </span>
       </>);
     case 'follow':
       return (<>
-        <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
-          {notification.events[0].actor.displayed_name} (@{notification.events[0].actor.username})
-        </Link> zaczął(a) Cię obserwować 
+        {notification.latest_actors.map((actor, index) => (
+          <React.Fragment key={actor.id}>
+            <Link to={`/@/${actor.username}`} onClick={event => event.stopPropagation()}>
+              {actor.displayed_name} (@{actor.username})
+            </Link>
+            {index === notification.events_count - 2 && ' i '} 
+            {index < notification.events_count - 2 && ', '}
+          </React.Fragment>
+        ))}
+        {notification.events_count > notification.latest_actors.length
+          && `${notification.events_count - notification.latest_actors.length} innych`
+        }
+        {notification.events_count <= 1 ? ' zaczął/ęła Cię obserwować' : ' zaczęli Cię obserwować'}
       </>);
     case 'mention':
       return (<>
-        <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
-          {notification.events[0].actor.displayed_name} (@{notification.events[0].actor.username})
+        <Link to={`/@/${notification.latest_actors[0].username}`} onClick={event => event.stopPropagation()}>
+          {notification.latest_actors[0].displayed_name} (@{notification.latest_actors[0].username})
         </Link> wspomniał(a) Cię w poście: <span className="fst-italic">
           {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
         </span>
       </>);
     case 'followed_user_posted':
       return (<>
-        <Link to={`/@/${notification.events[0].actor.username}`} onClick={event => event.stopPropagation()}>
-          {notification.events[0].actor.displayed_name} (@{notification.events[0].actor.username})
+        <Link to={`/@/${notification.latest_actors[0].username}`} onClick={event => event.stopPropagation()}>
+          {notification.latest_actors[0].displayed_name} (@{notification.latest_actors[0].username})
         </Link> opublikował(a) nowy post: <span className="fst-italic">
           {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
         </span>
@@ -55,36 +76,19 @@ function Notifications() {
   const navigate = useNavigate();
 
   const mergeNotifications = (notifications, newNotification) => {
-    const exists = notifications.find(n => n.id === newNotification.id);
+    const filtered = notifications.filter(n => n.id !== newNotification.id);
 
-    if (exists) {
-      return notifications.map(n => n.id === newNotification.id ? newNotification : n);
-    }
-    else {
-      return [newNotification, ...notifications];
-    }
+    return [newNotification, ...filtered];
   };
 
   const handleNotificationClick = notificationData => {
-    const getPath = () => {
-      if (['reply', 'like', 'mention', 'followed_user_posted'].includes(notificationData.notification_type)) {
-        return `/post/${notificationData.related_post.id}`;
-      }
-      else if (notificationData.notification_type === 'follow') {
-        return `/@/${notificationData.events[0].actor.username}`;
-      }
-    };
-
     markNotificationAsSeen(notificationData.id)
       .then(() => {
         setNotifications(prev => prev.map(notification => {
           if (notification.id === notificationData.id) {
             return {
               ...notification,
-              events: notification.events.map(event => ({
-                ...event,
-                seen: true
-              }))
+              seen: true
             };
           }
           else return notification;
@@ -92,7 +96,9 @@ function Notifications() {
       })
       .catch(error => console.error(error));
     
-    navigate(getPath());
+    if (['reply', 'like', 'mention', 'followed_user_posted'].includes(notificationData.notification_type)) {
+      navigate(`/post/${notificationData.related_post.id}`);
+    }
   };
 
   const handleMarkAllNotifictionsAsSeen = () => {
@@ -101,10 +107,7 @@ function Notifications() {
         setNotifications(prev => prev.map(notification => {
             return {
               ...notification,
-              events: notification.events.map(event => ({
-                ...event,
-                seen: true
-              }))
+              seen: true
             };
           }
         ));
@@ -137,7 +140,7 @@ function Notifications() {
 
   const getUnseenCount = notifications => {
     try {
-      return notifications.filter(notification => notification.events.some(event => !event.seen)).length;
+      return notifications.filter(notification => !notification.seen).length;
     }
     catch {
       return 0;
@@ -164,17 +167,17 @@ function Notifications() {
               </div>      
             </div>
           </li>
-        </>) : notifications ? notifications.map(notification => (<>
+        </>) : notifications.length > 0 ? notifications.map(notification => (
           <li
-            className={`dropdown-item${notification.events.some(event => !event.seen) ? ' bg-info-subtle' : ''}`}
+            className={`dropdown-item${!notification.seen ? ' bg-info-subtle' : ''}`}
             key={notification.id}
           >
             <span className="dropdown-item-text" onClick={() => handleNotificationClick(notification)} role="button">
               <Notification notification={notification} />
             </span>
           </li>
-        </>)) : (<>
-          <li className="dropdown-item">
+        )) : (<>
+          <li>
             <span className="dropdown-item-text">Brak nowych powiadomień</span>
           </li>
         </>)}

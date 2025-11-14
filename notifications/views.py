@@ -1,8 +1,11 @@
+from django.db.models import OuterRef, Subquery
+from django.db.models.fields import DateTimeField
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Notification, Event
 from .serializers import NotificationSerializer
+
 
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
@@ -10,11 +13,18 @@ class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        latest_event_subquery = Event.objects.filter(
+            notification_id=OuterRef('pk')
+        ).order_by('-created_at').values('created_at')[:1]
+
         return (
-            Notification.objects
+            super().get_queryset()
             .filter(recipient=self.request.user)
-            .select_related('related_post')
-            .prefetch_related('events__actor')
+            .annotate(
+                latest_event_created_at=Subquery(latest_event_subquery, output_field=DateTimeField())
+            )
+            .prefetch_related('events__actor', 'related_post')
+            .order_by('-latest_event_created_at')
         )
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
