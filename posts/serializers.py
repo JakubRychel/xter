@@ -9,7 +9,8 @@ class BasePostSerializer(serializers.ModelSerializer):
     read_by = serializers.PrimaryKeyRelatedField(read_only=True, many=True)
     reads_count = serializers.SerializerMethodField()
 
-    published_at = serializers.DateTimeField(format='%d %b %Y, %H:%M', read_only=True)
+    published_at = serializers.DateTimeField(format='iso-8601', read_only=True)
+    # published_at = serializers.DateTimeField(format='%d %b %Y, %H:%M', read_only=True)
 
     class Meta:
         model = Post

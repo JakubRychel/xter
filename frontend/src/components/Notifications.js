@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { timeAgo } from '../utils/time';
 import { useNavigate, Link } from 'react-router';
 import { getNotifications, markNotificationAsSeen, markAllNotificationsAsSeen } from '../services/notifications';
 
@@ -7,7 +8,11 @@ function Notification({ notification }) {
   switch (notification.notification_type) {
     case 'reply':
       return (<>
-        <Link to={`/@/${notification.latest_actors[0].username}`} onClick={event => event.stopPropagation()}>
+        <Link
+          to={`/@/${notification.latest_actors[0].username}`}
+          onClick={event => event.stopPropagation()}
+          className="text-dark fw-bold text-decoration-none"
+        >
           {notification.latest_actors[0].displayed_name} (@{notification.latest_actors[0].username})
         </Link> odpowiedział(a) na Twój post: <span className="fst-italic">
           {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
@@ -17,7 +22,11 @@ function Notification({ notification }) {
       return (<>
         {notification.latest_actors.map((actor, index) => (
           <React.Fragment key={actor.id}>
-            <Link to={`/@/${actor.username}`} onClick={event => event.stopPropagation()}>
+            <Link
+              to={`/@/${actor.username}`}
+              onClick={event => event.stopPropagation()}
+              className="text-dark fw-bold text-decoration-none"
+            >
               {actor.displayed_name} (@{actor.username})
             </Link>
             {index === notification.events_count - 2 && ' i '} 
@@ -36,7 +45,11 @@ function Notification({ notification }) {
       return (<>
         {notification.latest_actors.map((actor, index) => (
           <React.Fragment key={actor.id}>
-            <Link to={`/@/${actor.username}`} onClick={event => event.stopPropagation()}>
+            <Link
+              to={`/@/${actor.username}`}
+              onClick={event => event.stopPropagation()}
+              className="text-dark fw-bold text-decoration-none"
+            >
               {actor.displayed_name} (@{actor.username})
             </Link>
             {index === notification.events_count - 2 && ' i '} 
@@ -50,7 +63,11 @@ function Notification({ notification }) {
       </>);
     case 'mention':
       return (<>
-        <Link to={`/@/${notification.latest_actors[0].username}`} onClick={event => event.stopPropagation()}>
+        <Link
+          to={`/@/${notification.latest_actors[0].username}`}
+          onClick={event => event.stopPropagation()}
+          className="text-dark fw-bold text-decoration-none"
+        >
           {notification.latest_actors[0].displayed_name} (@{notification.latest_actors[0].username})
         </Link> wspomniał(a) Cię w poście: <span className="fst-italic">
           {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
@@ -58,7 +75,11 @@ function Notification({ notification }) {
       </>);
     case 'followed_user_posted':
       return (<>
-        <Link to={`/@/${notification.latest_actors[0].username}`} onClick={event => event.stopPropagation()}>
+        <Link
+          to={`/@/${notification.latest_actors[0].username}`}
+          onClick={event => event.stopPropagation()}
+          className="text-dark fw-bold text-decoration-none"
+        >
           {notification.latest_actors[0].displayed_name} (@{notification.latest_actors[0].username})
         </Link> opublikował(a) nowy post: <span className="fst-italic">
           {notification.related_post?.content.slice(0, 30)}{notification.related_post?.content.length > 30 ? '...' : ''}
@@ -159,32 +180,43 @@ function Notifications() {
           </>}
       </button>
       <ul className="dropdown-menu dropdown-menu-end">
+        <li>
+          <span className="dropdown-item-text d-flex align-items-baseline">
+
+            <h6 className="dopdown-header fw-bold mb-0">Powiadomienia</h6>
+
+            {notifications && getUnseenCount(notifications) > 0 && (<>
+              <button className="btn btn-link text-decoration-none ms-auto" onClick={handleMarkAllNotifictionsAsSeen}>
+                Oznacz wszystkie jako przeczytane
+              </button>
+            </>)}
+
+          </span>
+        </li>
         {loading ? (<>
-          <li className="dropdown-item">
-            <div className="text-center dropdown-item-text">
+          <li>
+            <div className="dropdown-item-text text-center">
               <div className="spinner-border" role="status">
                 <span className="visually-hidden">Ładowanie...</span>
               </div>      
             </div>
           </li>
         </>) : notifications.length > 0 ? notifications.map(notification => (
-          <li
-            className={`dropdown-item${!notification.seen ? ' bg-info-subtle' : ''}`}
-            key={notification.id}
-          >
-            <span className="dropdown-item-text" onClick={() => handleNotificationClick(notification)} role="button">
+          <li key={notification.id}>
+            <span 
+              className={`dropdown-item py-2 border-top${!notification.seen ? ' bg-light' : ''}`}
+              onClick={() => handleNotificationClick(notification)} role="button"
+            >
               <Notification notification={notification} />
+
+              <div>
+                <small className="text-muted">{timeAgo(notification.updated_at)}</small>
+              </div>
             </span>
           </li>
         )) : (<>
           <li>
             <span className="dropdown-item-text">Brak nowych powiadomień</span>
-          </li>
-        </>)}
-        {notifications && getUnseenCount(notifications) > 0 && (<>
-          <li><hr className="dropdown-divider" /></li>
-          <li className="dropdown-item" onClick={handleMarkAllNotifictionsAsSeen} role="button">
-            Oznacz wszystkie jako przeczytane
           </li>
         </>)}
       </ul>

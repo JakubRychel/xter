@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { deletePost, likePost, unlikePost, updatePost, readPost } from '../services/posts';
+import { deletePost, likePost, unlikePost, readPost } from '../services/posts';
+import { timeAgo } from '../utils/time';
 import CreatePostForm from './CreatePostForm';
 import { Link, useNavigate } from 'react-router';
 import Feed from './Feed';
@@ -68,7 +69,9 @@ function Post({ post, like=null, unlike=null, update=null, remove=null, read=nul
           </Link>
           <span className="text-muted">@{post.author_username}</span>
         </h5>
-        <div>{post.published_at}</div>
+        <div>
+          <small className="text-muted">{timeAgo(post.published_at)}</small>
+        </div>
       </div>
 
       <div className="card-body py-0">
