@@ -181,6 +181,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 MEDIA_ULR = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),

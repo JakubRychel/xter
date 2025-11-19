@@ -181,13 +181,13 @@ function Notifications() {
       </button>
       <ul className="dropdown-menu dropdown-menu-end">
         <li>
-          <span className="dropdown-item-text d-flex align-items-baseline">
+          <span className="dropdown-item-text d-flex align-items-baseline py-2">
 
             <h6 className="dopdown-header fw-bold mb-0">Powiadomienia</h6>
 
             {notifications && getUnseenCount(notifications) > 0 && (<>
-              <button className="btn btn-link text-decoration-none ms-auto" onClick={handleMarkAllNotifictionsAsSeen}>
-                Oznacz wszystkie jako przeczytane
+              <button className="btn btn-link text-decoration-none p-0 mb-0 ms-auto" onClick={handleMarkAllNotifictionsAsSeen}>
+                <i className="bi bi-check-all"></i> Oznacz wszystkie jako przeczytane
               </button>
             </>)}
 
@@ -195,7 +195,7 @@ function Notifications() {
         </li>
         {loading ? (<>
           <li>
-            <div className="dropdown-item-text text-center">
+            <div className="dropdown-item-text py-2 border-top text-center">
               <div className="spinner-border" role="status">
                 <span className="visually-hidden">Ładowanie...</span>
               </div>      
@@ -216,7 +216,9 @@ function Notifications() {
           </li>
         )) : (<>
           <li>
-            <span className="dropdown-item-text">Brak nowych powiadomień</span>
+            <span className="dropdown-item-text py-2 border-top text-center">
+              Brak powiadomień
+            </span>
           </li>
         </>)}
       </ul>

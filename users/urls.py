@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import RegisterView, UserDetailView, UserViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, LogoutView
+from .views import RegisterView, UserDetailView, UserViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, LogoutView, EditProfileView, ChangePasswordView
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
@@ -12,4 +12,6 @@ urlpatterns = [
     path('auth/logout/', LogoutView.as_view(), name='logout'),
     path('auth/token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
     path('auth/current-user/', UserDetailView.as_view(), name='current_user'),
+    path('user/edit-profile/', EditProfileView.as_view(), name='edit_profile'),
+    path('user/change-password/', ChangePasswordView.as_view(), name='change_password')
 ]
