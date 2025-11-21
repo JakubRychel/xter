@@ -5,6 +5,7 @@ import { timeAgo } from '../utils/time';
 import CreatePostForm from './CreatePostForm';
 import { Link, useNavigate } from 'react-router';
 import Feed from './Feed';
+import ProfilePicture from './ProfilePicture';
 
 function Post({ post, like=null, unlike=null, update=null, remove=null, read=null, showReplies=false, isReply=false }) {
   const { user } = useAuth();
@@ -60,17 +61,22 @@ function Post({ post, like=null, unlike=null, update=null, remove=null, read=nul
   return(<>
     <div className="card my-3" onClick={event => event.stopPropagation()}>
       
-      <div className="card-header">
-        <h5 className="card-title d-inline-flex gap-1 align-items-baseline">
-          <Link className="link-dark" to={`/@/${post.author_username}/`}>
-            <span className="fw-semibold">
-              {post.author_displayed_name}
-            </span>
-          </Link>
-          <span className="text-muted">@{post.author_username}</span>
-        </h5>
+      <div className="card-header d-flex gap-2 align-items-center">
+        <ProfilePicture src={post.author.profile_picture} />
+
         <div>
-          <small className="text-muted">{timeAgo(post.published_at)}</small>
+          <h5 className="card-title d-inline-flex gap-1 align-items-baseline">
+            <Link className="link-dark" to={`/@/${post.author_username}/`}>
+              <span className="fw-semibold">
+                {post.author_displayed_name}
+              </span>
+            </Link>
+            <span className="text-muted">@{post.author_username}</span>
+          </h5>
+
+          <small className="d-block text-muted">
+            {timeAgo(post.published_at)}
+          </small>
         </div>
       </div>
 

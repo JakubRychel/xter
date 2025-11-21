@@ -1,10 +1,18 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from .models import Post
+from users.serializers import UserSerializer
+
+class AuthorSerializer(UserSerializer):
+    class Meta(UserSerializer.Meta):
+        fields = ['id', 'username', 'displayed_name', 'gender', 'profile_picture']
 
 class BasePostSerializer(serializers.ModelSerializer):
     author_id = serializers.ReadOnlyField(source='author.id')
     author_username = serializers.ReadOnlyField(source='author.username')
     author_displayed_name = serializers.ReadOnlyField(source='author.displayed_name')
+
+    author = AuthorSerializer(read_only=True)
 
     read_by = serializers.PrimaryKeyRelatedField(read_only=True, many=True)
     reads_count = serializers.SerializerMethodField()
@@ -14,7 +22,7 @@ class BasePostSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Post
-        fields = ['id', 'author_id', 'author_username', 'author_displayed_name', 'content', 'read_by', 'reads_count', 'published_at']
+        fields = ['id', 'author', 'author_id', 'author_username', 'author_displayed_name', 'content', 'read_by', 'reads_count', 'published_at']
 
     def get_reads_count(self, obj):
         return obj.read_by.count()

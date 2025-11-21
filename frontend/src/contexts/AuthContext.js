@@ -106,6 +106,9 @@ export const AuthProvider = ({ children }) => {
     const loadUser = async () => {
       try {
         const userData = await getCurrentUser();
+
+        console.log(userData);
+
         setUser(userData);
         setLoading(false);
       }

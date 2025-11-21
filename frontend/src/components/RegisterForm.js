@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { register } from '../services/auth';
+import FormField from './fields/FormField';
+import ImageField from './fields/ImageField';
+import TextareaField from './fields/TextareaField';
+import RadioSelect from './fields/RadioSelect';
 
 
 function RegisterForm() {
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-
+  const [data, setData] = useState({});
   const [error, setError] = useState('');
 
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ function RegisterForm() {
     event.preventDefault();
 
     try {
-      await register(username, email, password, confirmPassword);
+      await register(data);
       navigate('/login');
     }
     catch (error) {
@@ -34,42 +34,54 @@ function RegisterForm() {
         </div>
       </>)}
 
-      <div className="mb-3">
-        <label htmlFor="usernameInput" className="form-label">Nazwa użytkownika</label>
-        <input
-          type="text"
-          id="usernameInput"
-          className="form-control"
-          onChange={event => setUsername(event.target.value)}
-        />
-      </div>
-      <div className="mb-3">
-        <label htmlFor="passwordInput" className="form-label">Hasło</label>
-        <input
-          type="password"
-          id="passwordInput"
-          className="form-control"
-          onChange={event => setPassword(event.target.value)}
-        />
-      </div>
-      <div className="mb-3">
-        <label htmlFor="password2Input" className="form-label">Powtórz hasło</label>
-        <input
-          type="password"
-          id="password2Input"
-          className="form-control"
-          onChange={event => setConfirmPassword(event.target.value)}
-        />
-      </div>
-      <div className="mb-3">
-        <label htmlFor="emailInput" className="form-label">Adres e-mail</label>
-        <input
-          type="email"
-          id="emailInput"
-          className="form-control"
-          onChange={event => setEmail(event.target.value)}
-        />
-      </div>
+      <FormField
+        id="username"
+        label="Nazwa użytkownika"
+        setData={setData}
+      />
+      <FormField
+        type="password"
+        id="password"
+        label="Hasło"
+        setData={setData}
+      />
+      <FormField
+        type="password"
+        id="password2"
+        label="Powtórz hasło"
+        setData={setData}
+      />
+      <FormField
+        type="email"
+        id="email"
+        label="Adres e-mail"
+        setData={setData}
+      />
+      <RadioSelect
+        id="gender"
+        label="Płeć"
+        options={{
+          male: 'Mężczyzna',
+          female: 'Kobieta'
+        }}
+        setData={setData}
+      />
+      <ImageField
+        id="profile_picture"
+        label="Zdjęcie Profilowe"
+        setData={setData}
+      />
+      <FormField
+        id="displayed_name"
+        label="Nazwa wyświetlana"
+        setData={setData}
+      />
+      <TextareaField
+        id="bio"
+        label="Biogram"
+        setData={setData}
+      />
+
       <div className="mb-3">
         <button type="submit" className="btn btn-primary">Zarejestruj się</button>
       </div>

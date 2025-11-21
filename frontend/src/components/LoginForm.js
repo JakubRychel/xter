@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router';
+import FormField from './fields/FormField';
 
 
 function LoginForm() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-
+  const [data, setData] = useState({});
   const [error, setError] = useState('');
 
   const { login } = useAuth();
@@ -17,7 +16,7 @@ function LoginForm() {
     event.preventDefault();
 
     try {
-      await login(username, password);
+      await login(data);
       navigate('/');
     }
     catch (error) {
@@ -34,24 +33,18 @@ function LoginForm() {
         </div>
       </>)}
 
-      <div className="mb-3">
-        <label htmlFor="usernameInput" className="form-label">Nazwa użytkownika</label>
-        <input
-          type="text"
-          id="usernameInput"
-          className="form-control"
-          onChange={event => setUsername(event.target.value)}
-        />
-      </div>
-      <div className="mb-3">
-        <label htmlFor="passwordInput" className="form-label">Hasło</label>
-        <input
-          type="password"
-          id="passwordInput"
-          className="form-control"
-          onChange={event => setPassword(event.target.value)}
-        />
-      </div>
+      <FormField
+        id="username"
+        label="Nazwa użytkownika"
+        setData={setData}
+      />
+      <FormField
+        type="password"
+        id="password"
+        label="Hasło"
+        setData={setData}
+      />
+
       <div className="mb-3">
         <button type="submit" className="btn btn-primary">Zaloguj się</button>
       </div>

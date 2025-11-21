@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router';
 import Notifications from './Notifications';
+import ProfilePicture from './ProfilePicture';
 
 function Navbar() {
   const { user, logout } = useAuth();
@@ -26,7 +27,7 @@ function Navbar() {
               <Notifications />
             </li>
             <li className="nav-item">
-              Zalogowany jako {user.username}
+              Zalogowany jako <ProfilePicture src={user.profile_picture} size="1.2rem" /> {user.displayed_name} (@{user.username})
             </li>
             <li className="nav-item">
               <button className="btn btn-primary" onClick={handleLogout}>Wyloguj się</button>

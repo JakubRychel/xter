@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useParams } from 'react-router';
 import Feed from '../components/Feed';
 import { followUser, unfollowUser, getUser } from '../services/users';
+import ProfilePicture from '../components/ProfilePicture';
 
 function ProfilePage() {
   const { username } = useParams();
@@ -32,9 +33,7 @@ function ProfilePage() {
   }, [username]);
 
   const handleFollow = () => {
-    const token = localStorage.getItem('access');
-
-    followUser(profile.username, token)
+    followUser(profile.username)
       .then(() => {
         setProfile(prev => ({
           ...prev,
@@ -46,9 +45,7 @@ function ProfilePage() {
   };
 
   const handleUnfollow = () => {
-    const token = localStorage.getItem('access');
-
-    unfollowUser(profile.username, token)
+    unfollowUser(profile.username)
       .then(() => {
         setProfile(prev => ({
           ...prev,
@@ -69,12 +66,19 @@ function ProfilePage() {
 
   return (<>
     <div className="my-3">
-      <h5 className="mb-0">
-        <span className="fw-semibold">
-          {profile.displayed_name}
-        </span>
-      </h5>
-      <span className="text-muted">@{profile.username}</span>
+      
+      <div className="d-flex gap-2 align-items-center">
+        <ProfilePicture src={profile.profile_picture} />
+
+        <div>
+          <h5 className="mb-0">
+            <span className="fw-semibold">
+              {profile.displayed_name}
+            </span>
+          </h5>
+          <span className="text-muted">@{profile.username}</span>
+        </div>
+      </div>
 
       {profile.bio && <p className="my-2">{profile.bio}</p>}
 
