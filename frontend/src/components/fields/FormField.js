@@ -1,6 +1,6 @@
 import React from 'react';
 
-function FormField({ type='text', id, label, setData }) {
+function FormField({ type='text', id, label, defaultValue, setData }) {
   const handleChange = event => {
     setData(prev => ({...prev, [id]: event.target.value }))
   };
@@ -11,6 +11,7 @@ function FormField({ type='text', id, label, setData }) {
       <input
         type={type}
         id={id + 'Input'}
+        defaultValue={defaultValue}
         className="form-control"
         onChange={handleChange}
       />

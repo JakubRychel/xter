@@ -103,6 +103,8 @@ class EditProfileSerializer(serializers.ModelSerializer):
         if picture.size > 2 * 1024 * 1024:
             raise serializers.ValidationError('File is too large. Maximum size is 2MB.')
         
+        return picture
+        
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(write_only=True, required=True)
 

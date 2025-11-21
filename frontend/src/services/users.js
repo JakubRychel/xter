@@ -18,10 +18,20 @@ export const unfollowUser = async username => {
   const response = await api.post(`users/${username}/unfollow/`, {})
 };
 
-export const editProfile = async formData => {
-  const response = await api.patch('user/edit-profile/', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+export const editProfile = async data => {
+  const formData = new FormData();
+
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== null && value !== undefined) {
+      formData.append(key, value);
+    }
   });
+
+  for (let pair of formData.entries()) {
+    console.log(pair[0], pair[1]);
+  }
+
+  const response = await api.patch('user/edit-profile/', formData);
 
   return response.data;
 };

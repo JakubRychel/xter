@@ -8,6 +8,7 @@ import MainPage from './pages/MainPage';
 import RegisterPage from './pages/RegisterPage';
 import PostPage from './pages/PostPage';
 import ProfilePage from './pages/ProfilePage';
+import EditProfilePage from './pages/EditProfilePage';
 
 function App() {
   return (<>
@@ -26,6 +27,7 @@ function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/post/:postId" element={<PostPage />} />
               <Route path="/@/:username" element={<ProfilePage />} />
+              <Route path="/edit-profile" element={<EditProfilePage />} />
             </Routes>                 
           </div>
         </div>

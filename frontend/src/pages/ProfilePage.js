@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import Feed from '../components/Feed';
 import { followUser, unfollowUser, getUser } from '../services/users';
 import ProfilePicture from '../components/ProfilePicture';
@@ -66,7 +66,7 @@ function ProfilePage() {
 
   return (<>
     <div className="my-3">
-      
+
       <div className="d-flex gap-2 align-items-center">
         <ProfilePicture src={profile.profile_picture} />
 
@@ -97,6 +97,15 @@ function ProfilePage() {
           >
             Śledź
           </button>
+        </>)}
+
+        {user && user.id === profile.id && (<>
+          <Link
+            to="/edit-profile"
+            className="btn rounded-pill d-inline-block btn-primary ms-auto"
+          >
+            <i className="bi bi-pencil-fill"></i> edytuj
+          </Link>
         </>)}
       </div>
     </div>
