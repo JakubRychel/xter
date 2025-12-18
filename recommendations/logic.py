@@ -1,27 +1,15 @@
 from django.utils import timezone
 from django.db.models import Case, When, Value, FloatField
-from django.db import transaction, IntegrityError
 from django.core.cache import cache
 from sentence_transformers import SentenceTransformer
 from posts.models import Post
 from .models import PostEmbedding, GlobalEmbedding, UserEmbedding
+from .utils import get_text_embedding, get_or_create_post_embedding
 from datetime import timedelta
 import faiss
 import numpy as np
 
 embedding_model = SentenceTransformer('distiluse-base-multilingual-cased-v2')
-
-def get_or_create_post_embedding(post):
-    try:
-        post_embedding = post.embedding
-    except PostEmbedding.DoesNotExist:
-        try:
-            with transaction.atomic():
-                post_embedding = PostEmbedding.objects.create(post=post, embedding=embedding_model.encode(post.content))
-        except IntegrityError:
-            post_embedding = post.embedding
-    
-    return post_embedding.embedding
 
 def retrain_user_embedding(user, interaction_type, post_id):
     try:

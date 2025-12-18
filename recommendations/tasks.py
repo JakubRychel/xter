@@ -1,18 +1,21 @@
-from django.db.models import Count
-from django.core.cache import cache
-from posts.models import Post
-from .logic import get_or_create_post_embedding
 from celery import shared_task
 import statistics
 
 @shared_task
 def create_post_embedding(post_id):
+    from .logic import get_or_create_post_embedding
+    from posts.models import Post
+
     post = Post.objects.get(id=post_id)
 
     get_or_create_post_embedding(post)
 
 @shared_task
 def set_recommendation_params():
+    from django.db.models import Count
+    from django.core.cache import cache
+    from posts.models import Post
+    
     posts = (
         Post.objects
         .annotate(likes_count=Count('liked_by'), replies_count=Count('replies'))

@@ -1,150 +1,261 @@
 import random
-import os
-from django.contrib.auth import get_user_model
+from functools import wraps
 from celery import shared_task
-from transformers import pipeline
-from posts.models import Post
-from recommendations.logic import get_recommended_posts
 
-import google.generativeai as genai
-from google.api_core.exceptions import ResourceExhausted
 
-User = get_user_model()
+BOT_TASKS = {}
 
-API_KEY = os.getenv('GOOGLE_API_KEY')
-genai.configure(api_key=API_KEY)
 
-model = genai.GenerativeModel('gemini-2.5-flash-lite')
+"""
+SCHEMATY GENEROWANIA ZADAŃ DLA BOTÓW
+"""
 
-classifier = pipeline('zero-shot-classification', model='MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli')
+def generate_bot_task(bot_id, task_type=None):
+    from .models import Bot
 
-def generate_post(username, displayed_name, personality):
-    personality = personality or 'Jesteś neutralnym użytkownikiem.'
+    mode = Bot.objects.filter(id=bot_id).values_list('mode', flat=True).first()
 
-    prompt = f'''
-        Jesteś użytkownikiem portalu Xter podobnego do Twittera.
+    BOT_BEHAVIOR = {
+        'active': {
+            'read_feed': 0.7,
+            'write_post': 0.1,
+            'set_mode_standby': 0.199,
+            'set_mode_inactive': 0.001
+        },
+        'standby': {
+            'sleep': 0.8,
+            'set_mode_active': 0.199,
+            'set_mode_inactive': 0.001
+        },
+        'inactive': {
+            'set_mode_active': 0.4,
+            'set_mode_standby': 0.6
+        }
+    }
 
-        Twoja nazwa użytkownika: {username}
-        Twoja nazwa: {displayed_name}
-        Twoja osobowość: {personality}
+    config = BOT_BEHAVIOR.get(mode, {})
 
-        Napisz jedno-, dwu- lub trzyzdaniowy post, który jest zgodny z Twoją osobowością:
-    '''
+    actions = list(config.keys())
+    weights = list(config.values())
 
-    post = model.generate_content(prompt)
+    if not task_type:
+        task_type = random.choices(actions, weights=weights, k=1)[0]
 
-    return post.text or None
+    item = {
+        'type': task_type
+    }
 
-def generate_reply(username, displayed_name, personality, post, thread):
-    personality = personality or 'Jesteś neutralnym użytkownikiem.'
+    if task_type == 'read_feed':
+        limit = random.randint(5, 25)
+        item['payload'] = {'limit': limit}
 
-    prompt = f'''
-        Jesteś użytkownikiem portalu Xter podobnego do Twittera.
+    elif task_type == 'sleep':
+        if mode == Bot.STANDBY:
+            countdown = random.randint(60*60*5, 60*60*8)
+        else:
+            countdown = random.randint(300, 1800)
 
-        Twoja nazwa użytkownika: {username}
-        Twoja nazwa: {displayed_name}
-        Twoja osobowość: {personality}
+        item['countdown'] = countdown
 
-        Cały wątek dla kontekstu: {thread}
-        Każdy kolejny post wątku jest odpowiedzią na poprzedni post.
-        Oto post na który odpowiadasz, odpowiedz tylko na niego z uwzględnieniem kontekstu wątku jeśli jest to potrzebne: {post}
+    elif task_type == 'set_mode_active':
+        item['payload'] = {'mode': Bot.ACTIVE}
 
-        Napisz jedno-, dwu- lub trzyzdaniową odpowiedź, która jest zgodna z Twoją osobowością:
-    '''
+    elif task_type == 'set_mode_standby':
+        item['payload'] = {'mode': Bot.STANDBY}
 
-    reply = model.generate_content(prompt)
+    elif task_type == 'set_mode_inactive':
+        item['payload'] = {'mode': Bot.INACTIVE}
+        item['next_task_type'] = 'sleep'
 
-    return reply.text or None
+    return item
 
-def get_thread_alignment(thread, personality):
-    """
-    Funckja zwraca słownik 'result' gdzie w 'result.scores' jest lista trzech wartości odpowiadających etykietom
-    """
-    input_text = f'''
-        This is a conversation thread from a social media platform:
+def plan_next_task(bot_id, task_type=None):
+    from .queue import pop_bot_task
 
-        {thread}
+    next_task = pop_bot_task(bot_id) or generate_bot_task(bot_id, task_type=task_type)
 
-        The personality description of the user is as follows:
-        {personality}
-    '''
+    action = BOT_TASKS.get(next_task['type'])
 
-    result = classifier(
-        input_text,
-        candidate_labels=['matches', 'does not match', 'is neutral towards'],
-        hypothesis_template = 'The thread content {} the style, interests, and personality of the user.',
-        truncation = True,
-        max_length = 512
+    if not action:
+        raise KeyError(f'Bot action "{next_task["type"]}" not found')
+
+    payload = next_task.get('payload', {})
+    countdown = next_task.get('countdown', 5)
+
+    action.apply_async(
+        args=(bot_id, payload),
+        kwargs={'next_task_type': next_task.get('next_task_type', None)},
+        countdown=countdown
     )
 
-    return result
 
-def get_thread_content(post):
-    def stringify_post(post):
-        return f'''
-            Autor: {post.author.displayed_name} (@{post.author.username})
-            Data publikacji: {post.published_at.strftime('%d %b %Y, %H:%M')}
-            Treść: {post.content}
-        '''
+"""
+DEFINICJA DEKORATORA ZADAŃ BOTÓW
+"""
+
+def bot_action(queue='tasks.low'):
+    def decorator(fn):
+        @shared_task(
+            queue=queue,
+            retry_for=(Exception,),
+            retry_kwargs={'max_retries': 3, 'countdown': 30})
+        @wraps(fn)
+        def wrapper(bot_id, *args, **kwargs):
+            from .models import Bot
+
+            if not Bot.objects.filter(id=bot_id, enabled=True).exists():
+                return
+            
+            next_task_type = kwargs.pop('next_task_type', None)
+
+            fn(bot_id, *args)
+
+            plan_next_task(bot_id, task_type=next_task_type)
+
+        return wrapper
+    return decorator
+
+
+"""
+DZIAŁANIA BOTÓW
+"""
+
+@bot_action()
+def sleep(bot_id, *args, **kwargs):
+    print(f'Bot {bot_id} is sleeping...')
+
+@bot_action()
+def read_feed(bot_id, payload, *args, **kwargs):
+    print(f'Bot {bot_id} is reading feed...')
+
+@bot_action()
+def write_post(bot_id, *args, **kwargs):
+    print(f'Bot {bot_id} is writing a post...')
+
+@bot_action()
+def reply_to_post(bot_id, payload, *args, **kwargs):
+    print(f'Bot {bot_id} is replying to post {payload.get("post_id")}...')
+
+@bot_action()
+def like_post(bot_id, payload, *args, **kwargs):
+    print(f'Bot {bot_id} is liking post {payload.get("post_id")}...')
+
+@bot_action(queue='tasks.high')
+def handle_notification(bot_id, payload, *args, **kwargs):
+    print(f'Bot {bot_id} is handling notification {payload.get("notification_id")}...')
+
+@bot_action()
+def set_mode(bot_id, payload, *args, **kwargs):
+    print(f'Bot {bot_id} is setting mode to {payload.get("mode")}...')
+
+    from .models import Bot
+
+    mode = payload.get('mode')
+
+    Bot.objects.filter(id=bot_id).update(mode=mode)
+
+
+"""
+REJESTRACJA DZIAŁAŃ BOTÓW
+"""
+
+BOT_TASKS.update({
+    'sleep': sleep,
+    'read_feed': read_feed,
+    'write_post': write_post,
+    'reply_to_post': reply_to_post,
+    'like_post': like_post,
+    'handle_notification': handle_notification,
+    'set_mode_active': set_mode,
+    'set_mode_standby': set_mode,
+    'set_mode_inactive': set_mode,
+})
+
+
+# @shared_task
+# def generate_personality_embedding(personality_id):
+#     from .models import Personality
+#     from recommendations.utils import get_text_embedding
+
+#     queryset = Personality.objects.filter(pk=personality_id)
+#     if not queryset.exists():
+#         return
     
-    thread = stringify_post(post)
+#     description = queryset.values_list('description', flat=True).first()
 
-    while post.parent is not None:
-        post = post.parent
-        thread = stringify_post(post) + '\n' + thread
+#     embedding = get_text_embedding(description)
 
-    return thread
+#     queryset.update(embedding=embedding)
 
-@shared_task(bind=True, max_retries=3)
-def read_post(self, post_id, bot_id):
-    post = Post.objects.get(id=post_id)
-    bot = User.objects.get(id=bot_id)
+# @shared_task(bind=True, max_retries=3)
+# def read_post(self, post_id, bot_id):
+#     from .utils import get_thread_alignment, get_thread_content, generate_reply
+#     from posts.models import Post
+#     from django.contrib.auth import get_user_model
+#     from google.api_core.exceptions import ResourceExhausted
 
-    post.readed_by.add(bot)
-    thread_content = get_thread_content(post)
+#     User = get_user_model()
 
-    alignment = get_thread_alignment(thread_content, bot.bot.personality)
+#     post = Post.objects.get(id=post_id)
+#     bot = User.objects.get(id=bot_id)
 
-    try:
-        if (alignment['scores'][0] > 0.5):
-            if alignment['scores'][0] + random.random() > 1.3:
-                post.liked_by.add(bot)
-            if alignment['scores'][0] + random.random() > 1.5:
-                content = generate_reply(bot.username, bot.displayed_name, bot.bot.personality, post.content, thread_content)
+#     post.readed_by.add(bot)
+#     thread_content = get_thread_content(post)
 
-                if content is not None:
-                    Post.objects.create(author=bot, content=content, parent=post)
+#     alignment = get_thread_alignment(thread_content, bot.bot.personality)
 
-        if (alignment['scores'][1] > 0.5):
-            if alignment['scores'][1] + random.random() > 1.8:
-                content = generate_reply(bot.username, bot.displayed_name, bot.bot.personality, post.content, thread_content)
+#     try:
+#         if (alignment['scores'][0] > 0.5):
+#             if alignment['scores'][0] + random.random() > 1.3:
+#                 post.liked_by.add(bot)
+#             if alignment['scores'][0] + random.random() > 1.5:
+#                 content = generate_reply(bot.username, bot.displayed_name, bot.bot.personality, post.content, thread_content)
 
-                if content is not None:
-                    Post.objects.create(author=bot, content=content, parent=post)
-    except ResourceExhausted:
-        countdown = 2 ** self.request.retries
-        raise self.retry(countdown=countdown, exc=ResourceExhausted('Google API quota exceeded, retrying...'))
+#                 if content is not None:
+#                     Post.objects.create(author=bot, content=content, parent=post)
 
-@shared_task(bind=True, max_retries=3)
-def write_post(self, bot_id):
-    bot = User.objects.get(id=bot_id)
+#         if (alignment['scores'][1] > 0.5):
+#             if alignment['scores'][1] + random.random() > 1.8:
+#                 content = generate_reply(bot.username, bot.displayed_name, bot.bot.personality, post.content, thread_content)
 
-    try:
-        content = generate_post(bot.username, bot.displayed_name, bot.bot.personality)
+#                 if content is not None:
+#                     Post.objects.create(author=bot, content=content, parent=post)
+#     except ResourceExhausted:
+#         countdown = 2 ** self.request.retries
+#         raise self.retry(countdown=countdown, exc=ResourceExhausted('Google API quota exceeded, retrying...'))
 
-        if content is not None:
-            Post.objects.create(author=bot, content=content)
-    except ResourceExhausted:
-        countdown = 2 ** self.request.retries
-        raise self.retry(countdown=countdown, exc=ResourceExhausted('Google API quota exceeded, retrying...'))
+# @shared_task(bind=True, max_retries=3)
+# def write_post(self, bot_id):
+#     from .utils import generate_post
+#     from posts.models import Post
+#     from django.contrib.auth import get_user_model
+#     from google.api_core.exceptions import ResourceExhausted
 
-@shared_task
-def run_bot(id):
-    bot = User.objects.get(id=id)
-    recommended_posts = get_recommended_posts(bot)
-    posts = recommended_posts.exclude(readed_by=bot, author=bot)
+#     User = get_user_model()
 
-    if random.random() < 0.1: write_post.delay(bot.id)
+#     bot = User.objects.get(id=bot_id)
 
-    for post in posts:
-        read_post.delay(post.id, bot.id)
+#     try:
+#         content = generate_post(bot.username, bot.displayed_name, bot.bot.personality)
+
+#         if content is not None:
+#             Post.objects.create(author=bot, content=content)
+#     except ResourceExhausted:
+#         countdown = 2 ** self.request.retries
+#         raise self.retry(countdown=countdown, exc=ResourceExhausted('Google API quota exceeded, retrying...'))
+
+# @shared_task
+# def run_bot(id):
+#     from recommendations.logic import get_recommended_posts
+#     from django.contrib.auth import get_user_model
+
+#     User = get_user_model()
+
+#     bot = User.objects.get(id=id)
+#     recommended_posts = get_recommended_posts(bot)
+#     posts = recommended_posts.exclude(readed_by=bot, author=bot)
+
+#     if random.random() < 0.1: write_post.delay(bot.id)
+
+#     for post in posts:
+#         read_post.delay(post.id, bot.id)

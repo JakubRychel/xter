@@ -3,13 +3,17 @@ from django.db.models.fields import DateTimeField
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from .models import Notification, Event
 from .serializers import NotificationSerializer
 
+class NotificationPagePagination(PageNumberPagination):
+    page_size = 10
 
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
+    pagination_class = NotificationPagePagination
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):

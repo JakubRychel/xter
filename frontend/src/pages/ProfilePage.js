@@ -88,14 +88,14 @@ function ProfilePage() {
             className="btn rounded-pill d-inline-block btn-outline-secondary"
             onClick={handleUnfollow}
           >
-            Przestań śledzić
+            <i className="bi bi-person-fill-dash"></i> przestań śledzić
           </button>
         </>) : (<>
           <button
             className="btn rounded-pill d-inline-block btn-primary"
             onClick={handleFollow}
           >
-            Śledź
+            <i className="bi bi-person-fill-add"></i> śledź
           </button>
         </>)}
 

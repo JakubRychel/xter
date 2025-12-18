@@ -42,6 +42,22 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TASK_ALWAYS_EAGER = False
 
+CELERY_TASK_DEFAULT_QUEUE = 'celery'
+CELERY_TASK_QUEUES = {
+    'celery': {
+        'exchange': 'celery',
+        'routing_key': 'celery',
+    },
+    'tasks.high': {
+        'exchange': 'bots',
+        'routing_key': 'tasks.high',
+    },
+    'tasks.low': {
+        'exchange': 'bots',
+        'routing_key': 'tasks.low',
+    },
+}
+
 # Application definition
 
 INSTALLED_APPS = [

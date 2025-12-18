@@ -6,6 +6,7 @@ export const timeAgo = (isoDate) => {
   const intervals = {
     year: 365 * 24 * 3600,
     month: 30 * 24 * 3600,
+    week: 7 * 24 * 3600,
     day: 24 * 3600,
     hour: 3600,
     minute: 60,
@@ -16,6 +17,7 @@ export const timeAgo = (isoDate) => {
     const forms = {
       year: ['rok', 'lata', 'lat'],
       month: ['miesiąc', 'miesiące', 'miesięcy'],
+      week: ['tydzień', 'tygodnie', 'tygodni'],
       day: ['dzień', 'dni', 'dni'],
       hour: ['godzinę', 'godziny', 'godzin'],
       minute: ['minutę', 'minuty', 'minut']

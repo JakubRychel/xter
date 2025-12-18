@@ -140,7 +140,7 @@ function Notifications() {
     const fetchNotifications = async () => {
       const notifications = await getNotifications();
 
-      setNotifications(notifications);
+      setNotifications(notifications.results);
       setLoading(false);
     };
 

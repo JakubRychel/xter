@@ -15,15 +15,21 @@ function Post({ post, like=null, unlike=null, update=null, remove=null, read=nul
   const [editing, setEditing] = useState(false);
 
   const handleLike = () => {
+    like(post.id);
     likePost(post.id)
-      .then(() => like(post.id))
-      .catch(error => console.error(error));
+      .catch(error => {
+        console.error(error);
+        unlike(post.id);
+      });
   };
 
   const handleUnlike = () => {
+    unlike(post.id);
     unlikePost(post.id)
-      .then(() => unlike(post.id))
-      .catch(error => console.error(error));
+      .catch(error => {
+        console.error(error);
+        like(post.id);
+      });
   };
 
   const handleDelete = () => {
