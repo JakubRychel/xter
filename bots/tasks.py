@@ -51,7 +51,7 @@ def generate_bot_task(bot_id, task_type=None):
         item['payload'] = {'limit': limit}
 
     elif task_type == 'sleep':
-        if mode == Bot.STANDBY:
+        if mode == Bot.INACTIVE:
             countdown = random.randint(60*60*5, 60*60*8)
         else:
             countdown = random.randint(300, 1800)
