@@ -3,8 +3,10 @@ import numpy as np
 import google.generativeai as genai
 from recommendations.utils import get_or_create_post_embedding
 
-API_KEY = os.getenv('GOOGLE_API_KEY')
-genai.configure(api_key=API_KEY)
+GOOGLE_KEY = os.getenv('GOOGLE_API_KEY')
+OPEN_ROUTER_KEY = os.getenv('OPEN_ROUTER_API_KEY')
+
+genai.configure(api_key=GOOGLE_KEY)
 
 model = genai.GenerativeModel('gemini-2.5-flash-lite')
 

@@ -6,7 +6,6 @@ from rest_framework.pagination import PageNumberPagination
 from .models import Post
 from .serializers import PostSerializer
 from recommendations.logic import get_recommended_posts, retrain_user_embedding
-from recommendations.tasks import create_post_embedding
 
 class PostPagePagination(PageNumberPagination):
     page_size = 10
@@ -41,7 +40,6 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         instance = serializer.save(author=self.request.user)
-        create_post_embedding.delay(instance.id)
 
         if instance.parent:
             retrain_user_embedding(self.request.user, 'reply', instance.parent.id)
@@ -57,8 +55,6 @@ class PostViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('You cannot change the parent of a reply.')
 
         instance = serializer.save()
-
-        create_post_embedding.delay(instance.id)
 
         if instance.parent:
             retrain_user_embedding(self.request.user, 'reply', instance.parent.id)

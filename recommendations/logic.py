@@ -3,8 +3,8 @@ from django.db.models import Case, When, Value, FloatField
 from django.core.cache import cache
 from sentence_transformers import SentenceTransformer
 from posts.models import Post
-from .models import PostEmbedding, GlobalEmbedding, UserEmbedding
-from .utils import get_text_embedding, get_or_create_post_embedding
+from .models import GlobalEmbedding, UserEmbedding
+from .utils import get_or_create_post_embedding
 from datetime import timedelta
 import faiss
 import numpy as np

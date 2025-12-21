@@ -1,21 +1,19 @@
-from sentence_transformers import SentenceTransformer
 from django.db import transaction, IntegrityError
 from .models import PostEmbedding
+from sentence_transformers import SentenceTransformer
+
+embedding_model = SentenceTransformer('distiluse-base-multilingual-cased-v2')
 
 def get_text_embedding(text):
-    embedding_model = SentenceTransformer('distiluse-base-multilingual-cased-v2')
-    embedding = embedding_model.encode(text)
-
-    return embedding
+    return embedding_model.encode(text)
 
 def get_or_create_post_embedding(post):
     try:
         post_embedding = post.embedding
     except PostEmbedding.DoesNotExist:
-        try:
-            with transaction.atomic():
-                post_embedding = PostEmbedding.objects.create(post=post, embedding=get_text_embedding(post.content))
-        except IntegrityError:
-            post_embedding = post.embedding
+        post_embedding, _ = PostEmbedding.objects.get_or_create(
+            post=post,
+            defaults={'embedding': get_text_embedding(post.content)}
+        )
     
     return post_embedding.embedding

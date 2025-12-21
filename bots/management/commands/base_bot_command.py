@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 from ...models import Bot
 from ...tasks import plan_next_task
 
+
 class BaseBotCommand(BaseCommand):
     enable = True
     single = True
@@ -16,20 +17,21 @@ class BaseBotCommand(BaseCommand):
             usernames = options['usernames']
 
         if all_flag:
-            queryset = Bot.objects.all()
+            queryset = Bot.objects.filter(enabled=not self.enable)
         else:
-            queryset = Bot.objects.filter(user__username__in=usernames)
+            queryset = Bot.objects.filter(enabled=not self.enable, user__username__in=usernames)
 
         if not queryset.exists():
             self.stdout.write(self.style.ERROR('No bots found'))
             return
         
+        bot_ids = list(queryset.values_list('id', flat=True))
         updated_count = queryset.update(enabled=self.enable)
 
         if self.enable:
-            for bot in queryset:
-                plan_next_task(bot.id)
+            for bot_id in bot_ids:
+                plan_next_task(bot_id)
 
-        self.stdout.write(self.style.SUCCESS(
-            f'{updated_count} {'bots' if updated_count > 1 else 'bot'} {'enabled' if self.enable else 'disabled'}'
-        ))
+        message = f'{updated_count} {'bots' if updated_count > 1 else 'bot'} {'enabled' if self.enable else 'disabled'}'
+
+        self.stdout.write(self.style.SUCCESS(message) if self.enable else self.style.ERROR(message))
