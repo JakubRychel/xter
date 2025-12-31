@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from google import genai
+from google.genai import types
 from recommendations.utils import get_or_create_post_embedding
 
 GOOGLE_KEY = os.getenv('GOOGLE_API_KEY')
@@ -19,8 +20,8 @@ def get_thread_content(post, bot):
     while post.parent is not None:
         post = post.parent
         thread.append({
-            'role': 'assistant' if post.author == bot else 'user',
-            'content': stringify_post(post)
+            'role': 'model' if post.author == bot else 'user',
+            'text': stringify_post(post)
         })
 
     return list(reversed(thread))
@@ -58,7 +59,7 @@ def get_thread_alignment(post, personality):
 def generate_post(username, displayed_name, personality):
     personality = personality or 'Jesteś neutralnym użytkownikiem.'
 
-    system_instructions = f'''
+    system_instruction = f'''
         Jesteś użytkownikiem portalu Xter podobnego do X/Twittera.
 
         Twoja nazwa użytkownika: {username}
@@ -72,7 +73,7 @@ def generate_post(username, displayed_name, personality):
 
     response = client.models.generate_content(
         model='gemini-2.5-flash-lite',
-        contents=system_instructions
+        contents=system_instruction
     )
 
     return response.text or None
@@ -80,7 +81,7 @@ def generate_post(username, displayed_name, personality):
 def generate_reply(username, displayed_name, personality, post, thread):
     personality = personality or 'Jesteś neutralnym użytkownikiem.'
 
-    system_instructions = f'''
+    system_instruction = f'''
         Jesteś użytkownikiem portalu Xter podobnego do X/Twittera.
 
         Twoja nazwa użytkownika: {username}
@@ -90,15 +91,14 @@ def generate_reply(username, displayed_name, personality, post, thread):
         Napisz jedno-, dwu- lub trzyzdaniową odpowiedź, która jest zgodna z Twoją osobowością. Wygeneruj jedynie treść bez żadnych dodatkowych informacji.
     '''
 
-    messages = [{
-        'role': 'system',
-        'content': system_instructions
-    }]
-
-    messages.extend(thread)
-
     client = genai.Client()
-    chat = client.chats.create(model='gemini-2.5-flash-lite', history=messages)
+    chat = client.chats.create(
+        model='gemini-2.5-flash-lite',
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction
+        ),
+        history=[types.Content(role=post['role'], parts=[types.Part(text=post['text'])]) for post in thread]
+    )
 
     response = chat.send_message(post)
 
