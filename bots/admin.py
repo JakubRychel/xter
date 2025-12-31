@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import Bot, Personality
 
-admin.site.register(Bot)
-admin.site.register(Personality)
+@admin.register(Bot)
+class BotAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user__username', 'enabled', 'mode')

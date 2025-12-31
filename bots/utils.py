@@ -1,56 +1,29 @@
 import os
 import numpy as np
-import google.generativeai as genai
+from google import genai
 from recommendations.utils import get_or_create_post_embedding
 
 GOOGLE_KEY = os.getenv('GOOGLE_API_KEY')
 OPEN_ROUTER_KEY = os.getenv('OPEN_ROUTER_API_KEY')
 
-genai.configure(api_key=GOOGLE_KEY)
+def stringify_post(post):
+    return f'''
+        Autor: {post.author.displayed_name} (@{post.author.username})
+        Data publikacji: {post.published_at.strftime('%d %b %Y, %H:%M')}
+        Treść: {post.content}
+    '''
 
-model = genai.GenerativeModel('gemini-2.5-flash-lite')
-
-# from transformers import pipeline
-# classifier = pipeline('zero-shot-classification', model='MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli')
-
-# def get_thread_alignment(thread, personality):
-#     """
-#     Funckja zwraca słownik 'result' gdzie w 'result.scores' jest lista trzech wartości odpowiadających etykietom
-#     """
-#     input_text = f'''
-#         This is a conversation thread from a social media platform:
-
-#         {thread}
-
-#         The personality description of the user is as follows:
-#         {personality}
-#     '''
-
-#     result = classifier(
-#         input_text,
-#         candidate_labels=['matches', 'does not match', 'is neutral towards'],
-#         hypothesis_template = 'The thread content {} the style, interests, and personality of the user.',
-#         truncation = True,
-#         max_length = 512
-#     )
-
-#     return result
-
-def get_thread_content(post):
-    def stringify_post(post):
-        return f'''
-            Autor: {post.author.displayed_name} (@{post.author.username})
-            Data publikacji: {post.published_at.strftime('%d %b %Y, %H:%M')}
-            Treść: {post.content}
-        '''
-    
-    thread = stringify_post(post)
+def get_thread_content(post, bot):
+    thread = []
 
     while post.parent is not None:
         post = post.parent
-        thread = stringify_post(post) + '\n' + thread
+        thread.append({
+            'role': 'assistant' if post.author == bot else 'user',
+            'content': stringify_post(post)
+        })
 
-    return thread
+    return list(reversed(thread))
 
 def get_thread_posts(post):
     posts = [post]
@@ -85,37 +58,48 @@ def get_thread_alignment(post, personality):
 def generate_post(username, displayed_name, personality):
     personality = personality or 'Jesteś neutralnym użytkownikiem.'
 
-    prompt = f'''
-        Jesteś użytkownikiem portalu Xter podobnego do Twittera.
+    system_instructions = f'''
+        Jesteś użytkownikiem portalu Xter podobnego do X/Twittera.
 
         Twoja nazwa użytkownika: {username}
         Twoja nazwa: {displayed_name}
         Twoja osobowość: {personality}
 
-        Napisz jedno-, dwu- lub trzyzdaniowy post, który jest zgodny z Twoją osobowością:
+        Napisz jedno-, dwu- lub trzyzdaniowy post, który jest zgodny z Twoją osobowością. Wygeneruj jedynie treść bez żadnych dodatkowych informacji.
     '''
 
-    post = model.generate_content(prompt)
+    client = genai.Client()
 
-    return post.text or None
+    response = client.models.generate_content(
+        model='gemini-2.5-flash-lite',
+        contents=system_instructions
+    )
+
+    return response.text or None
 
 def generate_reply(username, displayed_name, personality, post, thread):
     personality = personality or 'Jesteś neutralnym użytkownikiem.'
 
-    prompt = f'''
-        Jesteś użytkownikiem portalu Xter podobnego do Twittera.
+    system_instructions = f'''
+        Jesteś użytkownikiem portalu Xter podobnego do X/Twittera.
 
         Twoja nazwa użytkownika: {username}
         Twoja nazwa: {displayed_name}
         Twoja osobowość: {personality}
 
-        Cały wątek dla kontekstu: {thread}
-        Każdy kolejny post wątku jest odpowiedzią na poprzedni post.
-        Oto post na który odpowiadasz, odpowiedz tylko na niego z uwzględnieniem kontekstu wątku jeśli jest to potrzebne: {post}
-
-        Napisz jedno-, dwu- lub trzyzdaniową odpowiedź, która jest zgodna z Twoją osobowością:
+        Napisz jedno-, dwu- lub trzyzdaniową odpowiedź, która jest zgodna z Twoją osobowością. Wygeneruj jedynie treść bez żadnych dodatkowych informacji.
     '''
 
-    reply = model.generate_content(prompt)
+    messages = [{
+        'role': 'system',
+        'content': system_instructions
+    }]
 
-    return reply.text or None
+    messages.extend(thread)
+
+    client = genai.Client()
+    chat = client.chats.create(model='gemini-2.5-flash-lite', history=messages)
+
+    response = chat.send_message(post)
+
+    return response.text or None

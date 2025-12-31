@@ -20,13 +20,13 @@ def generate_bot_task(bot_id, task_type=None):
         'active': {
             'read_feed': 0.7,
             'write_post': 0.1,
-            'set_mode_standby': 0.199,
-            'set_mode_inactive': 0.001
+            'set_mode_standby': 0.19,
+            'set_mode_inactive': 0.01
         },
         'standby': {
             'sleep': 0.8,
-            'set_mode_active': 0.199,
-            'set_mode_inactive': 0.001
+            'set_mode_active': 0.19,
+            'set_mode_inactive': 0.01
         },
         'inactive': {
             'set_mode_active': 0.4,
@@ -176,7 +176,7 @@ def write_post(bot_id, payload, *args, **kwargs):
 
     from posts.models import Post
     from .models import Bot
-    from .utils import generate_post, generate_reply, get_thread_content
+    from .utils import generate_post, generate_reply, get_thread_content, stringify_post
     from google.api_core.exceptions import ResourceExhausted
 
     bot = Bot.objects.select_related('user').get(id=bot_id)
@@ -184,8 +184,8 @@ def write_post(bot_id, payload, *args, **kwargs):
 
     if post_id is not None:
         post = Post.objects.get(id=post_id)
-        post_content = post.content
-        thread_content = get_thread_content(post)
+        post_content = stringify_post(post)
+        thread_content = get_thread_content(post, bot_user)
     else:
         post = None
 
