@@ -1,11 +1,5 @@
-from django.db import transaction, IntegrityError
 from .models import PostEmbedding
-from sentence_transformers import SentenceTransformer
-
-embedding_model = SentenceTransformer('distiluse-base-multilingual-cased-v2')
-
-def get_text_embedding(text):
-    return embedding_model.encode(text)
+from .services import embed
 
 def get_or_create_post_embedding(post):
     try:
@@ -13,7 +7,7 @@ def get_or_create_post_embedding(post):
     except PostEmbedding.DoesNotExist:
         post_embedding, _ = PostEmbedding.objects.get_or_create(
             post=post,
-            defaults={'embedding': get_text_embedding(post.content)}
+            defaults={'embedding': embed(post.content)}
         )
     
     return post_embedding.embedding

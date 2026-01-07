@@ -66,7 +66,7 @@ def generate_post(username, displayed_name, personality):
         Twoja nazwa: {displayed_name}
         Twoja osobowość: {personality}
 
-        Napisz jedno-, dwu- lub trzyzdaniowy post, który jest zgodny z Twoją osobowością. Wygeneruj jedynie treść bez żadnych dodatkowych informacji.
+        Napisz jedno-, dwu- lub trzyzdaniowy post, który jest zgodny z Twoją osobowością. Wygeneruj wyłącznie treść posta bez żadnych dodatkowych informacji takich jak data lub nazwa użytkownika bota.
     '''
 
     client = genai.Client()
@@ -88,7 +88,7 @@ def generate_reply(username, displayed_name, personality, post, thread):
         Twoja nazwa: {displayed_name}
         Twoja osobowość: {personality}
 
-        Napisz jedno-, dwu- lub trzyzdaniową odpowiedź, która jest zgodna z Twoją osobowością. Wygeneruj jedynie treść bez żadnych dodatkowych informacji.
+        Napisz jedno-, dwu- lub trzyzdaniową odpowiedź, która jest zgodna z Twoją osobowością. Wygeneruj wyłącznie treść odpowiedzi bez żadnych dodatkowych informacji takich jak data lub nazwa użytkownika bota.
     '''
 
     client = genai.Client()

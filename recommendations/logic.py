@@ -1,15 +1,12 @@
 from django.utils import timezone
 from django.db.models import Case, When, Value, FloatField
 from django.core.cache import cache
-from sentence_transformers import SentenceTransformer
 from posts.models import Post
 from .models import GlobalEmbedding, UserEmbedding
 from .utils import get_or_create_post_embedding
+from .services import get_nearest_neighbors
 from datetime import timedelta
-import faiss
 import numpy as np
-
-embedding_model = SentenceTransformer('distiluse-base-multilingual-cased-v2')
 
 def retrain_user_embedding(user, interaction_type, post_id):
     try:
@@ -55,33 +52,13 @@ def get_initial_recommended_post_ids(user):
     recent_posts = (
         Post.objects
         .filter(published_at__gte=now - timedelta(days=100))
-        .select_related('embedding')
-        .only('id', 'published_at', 'embedding__embedding')
+        .values_list('id', 'embedding__embedding')
     )
-
-    post_ids = []
-    embeddings = []
-
-    for post in recent_posts:
-        post_embedding = get_or_create_post_embedding(post)
-
-        post_ids.append(post.id)
-        embeddings.append(post_embedding)
-
-    embeddings = np.array(embeddings, dtype='float32')
-
-    d = 512
-
-    index = faiss.IndexFlatIP(d)
-    faiss.normalize_L2(embeddings)
-    index.add(embeddings)
+    post_ids, post_embeddings = zip(*recent_posts)
 
     faiss_id_to_post_id = {faiss_id: post_id for faiss_id, post_id in enumerate(post_ids)}
 
-    user_embedding = np.array([user_embedding], dtype='float32')
-    faiss.normalize_L2(user_embedding)
-
-    D, I = index.search(user_embedding, k=200) # D - odległość, I - indeksy
+    D, I = get_nearest_neighbors(user_embedding, post_embeddings)
 
     return (
         [faiss_id_to_post_id[i] for i in I[0]],
