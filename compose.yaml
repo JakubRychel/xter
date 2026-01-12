@@ -1,0 +1,64 @@
+services:
+  backend:
+    build: ./backend
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - database
+    command: uvicorn xter.asgi:application --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build: ./frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    command: npm run dev
+
+  database:
+    image: pgvector/pgvector:pg17
+    volumes:
+      - pg17_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+
+  redis:
+    image: redis:7-alpine
+
+  worker:
+    build: ./backend
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env
+    depends_on:
+      - backend
+      - database
+      - redis
+    command: celery -A xter worker -l info -Q tasks.high,tasks.low,celery
+
+  fastapi:
+    build: ./fastapi
+    volumes:
+      - ./fastapi:/app
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    depends_on:
+      - database
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+
+volumes:
+  pg17_data:

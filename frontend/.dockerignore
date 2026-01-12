@@ -1,0 +1,15 @@
+# Node modules (instalowane w Dockerze)
+node_modules
+
+# Build frontend
+dist
+build
+
+# Logi i pliki konfiguracyjne lokalne
+npm-debug.log
+yarn-error.log
+.env
+
+# IDE
+.idea/
+.vscode/

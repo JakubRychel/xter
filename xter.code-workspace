@@ -1,0 +1,12 @@
+{
+    "folders": [
+        { "path": "backend" },
+		{ "path": "frontend" },
+        { "path": "fastapi" }
+    ],
+    "settings": {
+        "django.python.pythonPath": "backend/.venv/Scripts/python.exe",
+        "fastapi.python.pythonPath": "fastapi/.venv/Scripts/python.exe",
+		"python.terminal.activateEnvironment": true
+    }
+}

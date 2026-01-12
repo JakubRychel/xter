@@ -1,0 +1,27 @@
+# Wirtualne środowisko Pythona
+.venv
+env
+venv
+
+# Cache Pythona
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Pliki konfiguracyjne środowiska
+.env
+*.env
+
+# Bazy danych lokalne / pliki tymczasowe
+*.sqlite3
+*.log
+
+# Build/packaging
+build/
+dist/
+*.egg-info/
+
+# Inne duże pliki niepotrzebne w Dockerze
+.idea/
+.vscode/
