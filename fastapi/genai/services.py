@@ -19,9 +19,9 @@ def chat(system_instruction, history, message):
         model=MODEL,
         config=types.GenerateContentConfig(system_instruction=system_instruction),
         history=[types.Content(
-            role=content['role'],
-            parts=[types.Part(text=part) for part in content['parts']]
-        ) for content in history]
+            role=chunk.role,
+            parts=[types.Part(text=part) for part in chunk.parts]
+        ) for chunk in history]
     )
 
     response = chat.send_message(message)

@@ -1,30 +1,8 @@
 import os
 import numpy as np
-from google import genai
-from google.genai import types
 from recommendations.utils import get_or_create_post_embedding
+from .services import generate_text, chat
 
-GOOGLE_KEY = os.getenv('GOOGLE_API_KEY')
-OPEN_ROUTER_KEY = os.getenv('OPEN_ROUTER_API_KEY')
-
-def stringify_post(post):
-    return f'''
-        Autor: {post.author.displayed_name} (@{post.author.username})
-        Data publikacji: {post.published_at.strftime('%d %b %Y, %H:%M')}
-        Treść: {post.content}
-    '''
-
-def get_thread_content(post, bot):
-    thread = []
-
-    while post.parent is not None:
-        post = post.parent
-        thread.append({
-            'role': 'model' if post.author == bot else 'user',
-            'text': stringify_post(post)
-        })
-
-    return list(reversed(thread))
 
 def get_thread_posts(post):
     posts = [post]
@@ -56,8 +34,60 @@ def get_thread_alignment(post, personality):
 
     return alignment
 
-def generate_post(username, displayed_name, personality):
-    personality = personality or 'Jesteś neutralnym użytkownikiem.'
+def stringify_post(post):
+    return f'''
+        Autor: {post.author.displayed_name} (@{post.author.username})
+        Data publikacji: {post.published_at.strftime('%d %b %Y, %H:%M')}
+        Treść: {post.content}
+    '''
+
+def build_thread(bot, post, thread=None):
+    if thread is None:
+        thread = []
+
+    post = post.parent
+
+    if post is not None:
+        build_thread(bot, post, thread)
+
+        role = 'model' if post.author == bot.user else 'user'
+        
+        if thread and thread[-1]['role'] == role:
+            thread[-1]['parts'].append(stringify_post(post))
+        else:
+            thread.append({
+                'role': role,
+                'parts': [stringify_post(post)]
+            })
+
+    return thread
+
+def generate_post(bot):
+    username = bot.user.username
+    displayed_name = bot.user.displayed_name
+    personality = bot.personality or 'Jesteś neutralnym użytkownikiem.'
+
+    system_instruction = f'''
+        Jesteś użytkownikiem portalu Xter podobnego do X/Twittera.
+
+        Twoja nazwa użytkownika: {username}
+        Twoja nazwa: {displayed_name}
+        Twoja osobowość: {personality}
+    '''
+
+    contents = 'Napisz jedno-, dwu- lub trzyzdaniowy post, który jest zgodny z Twoją osobowością. Wygeneruj wyłącznie treść posta bez żadnych dodatkowych informacji. Nie zawieraj informacji takich jak data lub nazwa użytkownika bota.'
+
+    response = generate_text(
+        system_instruction=system_instruction,
+        contents=contents
+    )
+
+    return response or None
+
+def generate_reply(bot, post):
+    username = bot.user.username
+    displayed_name = bot.user.displayed_name
+    personality = bot.personality or 'Jesteś neutralnym użytkownikiem.'
 
     system_instruction = f'''
         Jesteś użytkownikiem portalu Xter podobnego do X/Twittera.
@@ -66,40 +96,15 @@ def generate_post(username, displayed_name, personality):
         Twoja nazwa: {displayed_name}
         Twoja osobowość: {personality}
 
-        Napisz jedno-, dwu- lub trzyzdaniowy post, który jest zgodny z Twoją osobowością. Wygeneruj wyłącznie treść posta bez żadnych dodatkowych informacji takich jak data lub nazwa użytkownika bota.
+        Udzielasz jedno-, dwu- lub trzyzdaniowej odpowiedzi, która jest zgodna z Twoją osobowością. Wygeneruj wyłącznie treść odpowiedzi bez żadnych dodatkowych informacji. Nie zawieraj informacji takich jak data lub nazwa użytkownika bota.
     '''
 
-    client = genai.Client()
+    thread = build_thread(bot, post)
 
-    response = client.models.generate_content(
-        model='gemini-2.5-flash-lite',
-        contents=system_instruction
+    response = chat(
+        system_instruction=system_instruction,
+        history=thread,
+        message=stringify_post(post)
     )
 
-    return response.text or None
-
-def generate_reply(username, displayed_name, personality, post, thread):
-    personality = personality or 'Jesteś neutralnym użytkownikiem.'
-
-    system_instruction = f'''
-        Jesteś użytkownikiem portalu Xter podobnego do X/Twittera.
-
-        Twoja nazwa użytkownika: {username}
-        Twoja nazwa: {displayed_name}
-        Twoja osobowość: {personality}
-
-        Napisz jedno-, dwu- lub trzyzdaniową odpowiedź, która jest zgodna z Twoją osobowością. Wygeneruj wyłącznie treść odpowiedzi bez żadnych dodatkowych informacji takich jak data lub nazwa użytkownika bota.
-    '''
-
-    client = genai.Client()
-    chat = client.chats.create(
-        model='gemini-2.5-flash-lite',
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction
-        ),
-        history=[types.Content(role=post['role'], parts=[types.Part(text=post['text'])]) for post in thread]
-    )
-
-    response = chat.send_message(post)
-
-    return response.text or None
+    return response or None

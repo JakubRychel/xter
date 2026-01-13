@@ -3,7 +3,7 @@ from typing import List, Literal, Union
 
 class ChatMessage(BaseModel):
     role: Literal['user', 'model']
-    contents: List[str]
+    parts: List[str]
 
 class ChatRequest(BaseModel):
     system_instruction: str

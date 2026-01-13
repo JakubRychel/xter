@@ -176,40 +176,20 @@ def write_post(bot_id, payload, *args, **kwargs):
 
     from posts.models import Post
     from .models import Bot
-    from .utils import generate_post, generate_reply, get_thread_content, stringify_post
-    from google.api_core.exceptions import ResourceExhausted
+    from .utils import generate_post, generate_reply
 
     bot = Bot.objects.select_related('user').get(id=bot_id)
-    bot_user = bot.user
 
-    if post_id is not None:
-        post = Post.objects.get(id=post_id)
-        post_content = stringify_post(post)
-        thread_content = get_thread_content(post, bot_user)
-    else:
-        post = None
+    post = Post.objects.get(id=post_id) if post_id else None
 
     try:
-        content = (
-            generate_reply(
-                bot_user.username,
-                bot_user.displayed_name,
-                bot.personality_obj.description,
-                post_content,
-                thread_content
-            ) if post_id
-            else generate_post(
-                bot_user.username,
-                bot_user.displayed_name,
-                bot.personality_obj.description
-            )
-        )
+        content = generate_reply(bot, post) if post_id else generate_post(bot)
 
         if content is not None:
-            Post.objects.create(author=bot_user, content=content, parent=post)
+            Post.objects.create(author=bot.user, content=content, parent=post)
 
-    except ResourceExhausted:
-        print(f'Bot {bot_id} hit Google API quota limit while writing a post.')
+    except Exception as e:
+        print(f'Error generating post/reply for bot {bot_id}: {e}')
 
 @bot_action()
 def like_post(bot_id, payload, *args, **kwargs):
