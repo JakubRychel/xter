@@ -5,3 +5,4 @@ pydantic-settings>=2.13.1
 numpy>=2.4.3
 redis>=7.3.0
 qdrant-client[fastembed]>=1.17.1
+google-genai>=1.73.1

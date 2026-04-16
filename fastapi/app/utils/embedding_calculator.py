@@ -1,6 +1,10 @@
 import numpy as np
 
 def calculate_retrained_embedding(u0: np.ndarray, posts: np.ndarray, alphas: np.ndarray) -> np.ndarray:
+    u0 = np.asarray(u0, dtype=np.float32)
+    posts = np.asarray(posts, dtype=np.float32)
+    alphas = np.asarray(alphas, dtype=np.float32)
+
     N = len(alphas)
     suffix = np.ones(N, dtype=np.float32)
 

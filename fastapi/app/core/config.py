@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     embeddings_model: str = 'sentence-transformers/all-MiniLM-L6-v2'
     embeddings_vector_size: int = 384
 
+    genai_model: str = 'gemini-2.5-flash-lite'
+    gemini_api_key: str = Field(..., env='GEMINI_API_KEY')
+
     class Config:
         env_file = '.env'
         env_file_encoding = 'utf-8'

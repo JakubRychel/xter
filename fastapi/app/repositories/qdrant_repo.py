@@ -1,5 +1,8 @@
+from datetime import datetime, timedelta, timezone
+from heapq import nlargest
+from itertools import chain
 from typing import ClassVar
-from qdrant_client.models import VectorParams, Distance, PointStruct
+from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, Range, Query
 
 from app.core.qdrant import qdrant_client
 from app.core.config import settings
@@ -97,3 +100,57 @@ class QdrantRepo:
         return {
             point.id: point.vector for point in points
         }
+    
+
+    async def get_recommendations(self, user_id: int, limit: int, delta: timedelta) -> dict[int, float]:
+        embeddings = await self.get_user_embeddings([user_id])
+        user_vector = embeddings.get(user_id)
+
+        now = datetime.now(timezone.utc)
+        threshold = (now - delta).timestamp()
+
+        post_hits = self.qdrant.query_points(
+            collection_name=self.post_collection,
+            query=user_vector,
+            limit=limit,
+            using='post',
+            query_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key='timestamp',
+                        range=Range(
+                            gte=threshold
+                        )
+                    )
+                ]
+            )
+        )
+
+        thread_hits = self.qdrant.query_points(
+            collection_name=self.post_collection,
+            query=user_vector,
+            limit=limit,
+            using='thread',
+            query_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key='timestamp',
+                        range=Range(
+                            gte=threshold
+                        )
+                    )
+                ]
+            )
+        )
+
+        deduped = {}
+
+        for point in chain(post_hits.points, thread_hits.points):
+            if point.score > deduped.get(point.id, 0):
+                deduped[point.id] = point.score
+
+        result = dict(nlargest(limit, deduped.items(), key=lambda x: x[1]))
+
+        return result
+
+        return {}
