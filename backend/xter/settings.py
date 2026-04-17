@@ -36,7 +36,7 @@ CACHES = {
     }
 }
 
-FASTAPI_SERVICES_URL = os.getenv('FASTAPI_SERVICES_URL', 'http://fastapi:8001')
+FASTAPI_SERVICES_URL = os.getenv('FASTAPI_SERVICES_URL', 'http://fastapi:8001/v1')
 
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/2')

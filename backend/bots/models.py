@@ -6,7 +6,6 @@ User = get_user_model()
 
 class Personality(models.Model):
     description = models.TextField(blank=True, null=True)
-    embedding = VectorField(dimensions=512, blank=True, null=True)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

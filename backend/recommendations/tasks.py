@@ -2,16 +2,19 @@ from celery import shared_task
 import statistics
 
 @shared_task
-def create_post_embedding(post_id):
-    from .logic import get_or_create_post_embedding
-    from posts.models import Post
+def create_post_embeddings_task(post_id):
+    from .logic import create_post_embeddings
 
-    post = Post.objects.get(id=post_id)
-
-    get_or_create_post_embedding(post)
+    create_post_embeddings(post_id)
 
 @shared_task
-def set_recommendation_params():
+def retrain_user_embedding_task(user_id, post_id, interaction_type):
+    from .logic import retrain_user_embedding
+
+    retrain_user_embedding(user_id, post_id, interaction_type)
+
+@shared_task
+def set_recommendation_params_task():
     from django.db.models import Count
     from django.core.cache import cache
     from posts.models import Post

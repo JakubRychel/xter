@@ -1,7 +1,7 @@
 from django.conf import settings
 import requests
 
-def generate_text(system_instruction, contents):
+def generate_text_request(system_instruction, contents):
     response = requests.post(
         f'{settings.FASTAPI_SERVICES_URL}/genai/generate-text',
         json={'system_instruction': system_instruction, 'contents': contents},
@@ -11,7 +11,7 @@ def generate_text(system_instruction, contents):
     response.raise_for_status()
     return response.json()['text']
 
-def chat(system_instruction, history, message):
+def chat_request(system_instruction, history, message):
     response = requests.post(
         f'{settings.FASTAPI_SERVICES_URL}/genai/chat',
         json={

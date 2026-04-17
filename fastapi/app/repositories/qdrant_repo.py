@@ -104,7 +104,7 @@ class QdrantRepo:
 
     async def get_recommendations(self, user_id: int, limit: int, delta: timedelta) -> dict[int, float]:
         embeddings = await self.get_user_embeddings([user_id])
-        user_vector = embeddings.get(user_id)
+        user_vector = embeddings.get(user_id, [0] * settings.embeddings_vector_size)
 
         now = datetime.now(timezone.utc)
         threshold = (now - delta).timestamp()
@@ -152,5 +152,3 @@ class QdrantRepo:
         result = dict(nlargest(limit, deduped.items(), key=lambda x: x[1]))
 
         return result
-
-        return {}

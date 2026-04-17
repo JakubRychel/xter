@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from recommendations.utils import get_or_create_post_embedding
-from .services import generate_text, chat
+from .services import generate_text_request, chat_request
 
 
 def get_thread_posts(post):
@@ -77,7 +77,7 @@ def generate_post(bot):
 
     contents = 'Napisz jedno-, dwu- lub trzyzdaniowy post, który jest zgodny z Twoją osobowością. Wygeneruj wyłącznie treść posta bez żadnych dodatkowych informacji. Nie zawieraj informacji takich jak data lub nazwa użytkownika bota.'
 
-    response = generate_text(
+    response = generate_text_request(
         system_instruction=system_instruction,
         contents=contents
     )
@@ -101,7 +101,7 @@ def generate_reply(bot, post):
 
     thread = build_thread(bot, post)
 
-    response = chat(
+    response = chat_request(
         system_instruction=system_instruction,
         history=thread,
         message=stringify_post(post)
