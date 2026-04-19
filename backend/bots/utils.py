@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from recommendations.utils import get_or_create_post_embedding
 from .services import generate_text_request, chat_request
 
 
@@ -23,16 +22,18 @@ def cosine_similarity(a, b):
     
     return np.dot(a, b) / denom
 
-def get_thread_alignment(post, personality):
-    posts = get_thread_posts(post)
-    post_embeddings = [get_or_create_post_embedding(p) for p in posts]
-    thread_embedding = np.mean(np.array(post_embeddings), axis=0).tolist()
+# def get_thread_alignment(post, personality):
+    
 
-    personality_embedding = personality.embedding
+#     posts = get_thread_posts(post)
+#     post_embeddings = [get_or_create_post_embedding(p) for p in posts]
+#     thread_embedding = np.mean(np.array(post_embeddings), axis=0).tolist()
 
-    alignment = (cosine_similarity(thread_embedding, personality_embedding) + 1) / 2
+#     personality_embedding = personality.embedding
 
-    return alignment
+#     alignment = (cosine_similarity(thread_embedding, personality_embedding) + 1) / 2
+
+#     return alignment
 
 def stringify_post(post):
     return f'''

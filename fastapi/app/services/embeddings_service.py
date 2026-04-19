@@ -5,7 +5,7 @@ from app.core.config import settings
 from app.core.fastembed import embedder
 from app.repositories.redis_repo import RedisRepo
 from app.repositories.qdrant_repo import QdrantRepo
-from app.schemas.embeddings_schema import CreatePostEmbeddingsJob, RetrainUserEmbeddingJob
+from app.schemas.embeddings_schema import CreatePostEmbeddingsJob, RetrainUserEmbeddingJob, CreateBotEmbeddingJob
 from app.utils.embedding_calculator import calculate_retrained_embedding
 
 
@@ -139,3 +139,23 @@ class UserEmbeddingsService:
             self.redis.remove_jobs(jobs)
 
         return sorted(jobs, key=lambda job: job.user_id)
+    
+class BotEmbeddingsService:
+    def __init__(self):
+        self.qdrant = QdrantRepo()
+
+    async def handle_request(self, job: CreateBotEmbeddingJob):
+        await self.embed(job)
+
+    async def embed(self, job: CreateBotEmbeddingJob):
+        data = {
+            'bot_id': job.bot_id
+        }
+
+        text = job.bot_personality
+
+        embedding = list(embedder.embed(text))[0]
+
+        data['embedding'] = embedding
+
+        await self.qdrant.upsert_bot_embedding(data)

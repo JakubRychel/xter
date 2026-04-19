@@ -15,7 +15,7 @@ def retrain_user_embedding_on_post(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Post)
 def retrain_user_embedding_on_reply(sender, instance, created, **kwargs):
     if created and instance.parent:
-        retrain_user_embedding_task.delay(instance.author_id, instance.parent.id, 'reply')
+        retrain_user_embedding_task.delay(instance.author_id, instance.parent_id, 'reply')
 
 @receiver(m2m_changed, sender=Post.liked_by.through)
 def retrain_user_embedding_on_like(sender, instance, action, pk_set, **kwargs):

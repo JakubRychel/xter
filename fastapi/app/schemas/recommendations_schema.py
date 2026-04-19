@@ -12,3 +12,10 @@ class RecommendationsRequest(BaseModel):
 
 class RecommednationsResponse(BaseModel):
     recommended_posts: dict[int, float]
+
+class ScoreRequest(BaseModel):
+    bot_id: int
+    post_id: int
+
+class ScoreResponse(BaseModel):
+    score: float

@@ -1,11 +1,6 @@
-from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
-from django.utils import timezone
-from datetime import timedelta
-import time
 import random
 from ...models import Bot
-from ...tasks import run_bot
 
 User = get_user_model()
 
@@ -53,28 +48,3 @@ def create_bots():
                     'personality': BOT_DESCRIPTIONS[i][1]
                 }
             )
-
-class Command(BaseCommand):
-    help = 'Run bot scheduler'
-
-    def handle(self, *args, **kwargs):
-        create_bots()
-        try:
-            self.stdout.write(self.style.SUCCESS('Bot scheduler started...'))
-
-            while True:
-                bots = User.objects.filter(is_bot=True)
-
-                now = timezone.now()
-                next_run = (now.replace(second=0, microsecond=0) + timedelta(minutes=30 - now.minute % 30))
-
-                for bot in bots:
-                    run_bot.apply_async(args=[bot.id], eta=next_run)
-                    self.stdout.write(f'Scheduling bot {bot.username} at {next_run} (now: {timezone.now()})')
-
-                time.sleep((next_run - now).total_seconds())
-
-                self.stdout.write(self.style.SUCCESS('Bots fired...'))
-
-        except KeyboardInterrupt:
-            self.stdout.write(self.style.WARNING('Bot scheduler stopped by user (Ctrl+C)'))

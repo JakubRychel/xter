@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from heapq import nlargest
 from itertools import chain
 from typing import ClassVar
-from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, Range, Query
+from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, HasIdCondition, Range
 
 from app.core.qdrant import qdrant_client
 from app.core.config import settings
@@ -22,6 +22,7 @@ class QdrantRepo:
         self.qdrant = qdrant_client
         self.post_collection = 'posts'
         self.user_collection = 'users'
+        self.bot_collection = 'bot'
 
         VECTOR_SIZE = settings.embeddings_vector_size
 
@@ -37,6 +38,12 @@ class QdrantRepo:
         if not self.qdrant.collection_exists(self.user_collection):
             self.qdrant.create_collection(
                 collection_name=self.user_collection,
+                vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
+            )
+
+        if not self.qdrant.collection_exists(self.bot_collection):
+            self.qdrant.create_collection(
+                collection_name=self.bot_collection,
                 vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
             )
 
@@ -76,6 +83,19 @@ class QdrantRepo:
 
         self.qdrant.upsert(
             collection_name=self.user_collection,
+            points=points
+        )
+
+    async def upsert_bot_embedding(self, data: dict):
+        points = [
+            PointStruct(
+                id=data.get('bot_id'),
+                vector=data.get('embedding')
+            )
+        ]
+
+        self.qdrant.upsert(
+            collection_name=self.bot_collection,
             points=points
         )
 
@@ -152,3 +172,34 @@ class QdrantRepo:
         result = dict(nlargest(limit, deduped.items(), key=lambda x: x[1]))
 
         return result
+    
+    async def get_thread_score(self, bot_id: int, post_id: int) -> float:
+        bot_points = self.qdrant.retrieve(
+            collection_name=self.bot_collection,
+            ids=[bot_id],
+            with_vectors=True
+        )
+
+        if not bot_points:
+            raise ValueError('Bot not found.')
+
+        bot_vector = bot_points[0].vector
+
+        post_points = self.qdrant.query_points(
+            collection_name=self.post_collection,
+            query=bot_vector,
+            limit=1,
+            using='thread',
+            query_filter=Filter(
+                must=[
+                    HasIdCondition(has_id=[post_id])
+                ]
+            )
+        )
+
+        if not post_points:
+            raise ValueError('Post not found.')
+
+        score = post_points.points[0].score
+
+        return score

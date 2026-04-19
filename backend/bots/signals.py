@@ -4,14 +4,17 @@ from django.db import transaction
 
 from notifications.models import Notification
 from .queue import push_bot_task
-from .models import Bot
+from .models import Bot, Personality
+from .tasks import create_bot_embedding_task
 
 @receiver(post_save, sender=Notification)
 def handle_notification_save(sender, instance, created, **kwargs):
-    bot = Bot.objects.filter(user=instance.recipient).first()
-
-    if not created or not bot:
-        return
+    bot_id = (
+        Bot.objects
+        .filter(user=instance.recipient)
+        .values_list('id', flat=True)
+        .first()
+    )
 
     def enqueue():
         payload = {
@@ -19,10 +22,14 @@ def handle_notification_save(sender, instance, created, **kwargs):
         }
 
         push_bot_task(
-            bot_id=bot.id,
+            bot_id=bot_id,
             task_type='handle_notification',
             payload=payload,
             priority='high'
         )
 
     transaction.on_commit(enqueue)
+
+# @receiver(post_save, sender=Personality)
+# def create_bot_embedding_on_personality_change(sender, instance, created, **kwargs):
+#     create_bot_embedding_task.delay(instance.bot.id)

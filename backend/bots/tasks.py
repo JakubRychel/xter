@@ -138,7 +138,7 @@ def read_feed(bot_id, payload, *args, **kwargs):
     bot_user = Bot.objects.get(id=bot_id).user
     limit = payload.get('limit', 10)
 
-    post_ids = get_recommended_posts(bot_user).exclude(read_by=bot_user, author=bot_user).values_list('id', flat=True)[:limit]
+    post_ids = get_recommended_posts(bot_user.id).exclude(read_by=bot_user, author=bot_user).values_list('id', flat=True)[:limit]
 
     for post_id in post_ids:
         push_bot_task(bot_id, 'read_post', {'post_id': post_id})
@@ -149,7 +149,7 @@ def read_post(bot_id, payload, *args, **kwargs):
 
     from posts.models import Post
     from .models import Bot
-    from .utils import get_thread_alignment
+    from .logic import score_thread
 
     post_id = payload.get('post_id')
     post = Post.objects.get(id=post_id)
@@ -157,12 +157,12 @@ def read_post(bot_id, payload, *args, **kwargs):
 
     post.read_by.add(bot.user_id)
 
-    alignment = get_thread_alignment(post, bot.personality_obj)
+    score = score_thread(bot_id, post_id)
 
-    if (alignment > 0.5):
-        if alignment + random.random() > 1.3:
+    if (score > 0.5):
+        if score + random.random() > 1.2:
             push_bot_task(bot_id, 'like_post', {'post_id': post_id})
-        if alignment + random.random() > 1.5:
+        if score + random.random() > 1.3:
             push_bot_task(bot_id, 'reply_to_post', {'post_id': post_id})
 
 @bot_action()
@@ -260,16 +260,7 @@ ZADANIA GENEROWANIA EMBEDDINGÓW
 """
 
 @shared_task
-def generate_personality_embedding(personality_id):
-    from .models import Personality
-    from recommendations.utils import get_text_embedding
+def create_bot_embedding_task(bot_id):
+    from .logic import create_bot_embedding
 
-    queryset = Personality.objects.filter(pk=personality_id)
-    if not queryset.exists():
-        return
-    
-    description = queryset.values_list('description', flat=True).first()
-
-    embedding = get_text_embedding(description)
-
-    queryset.update(embedding=embedding)
+    create_bot_embedding(bot_id)

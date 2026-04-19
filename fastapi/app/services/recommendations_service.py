@@ -1,5 +1,3 @@
-
-
 from datetime import timedelta
 
 from app.repositories.qdrant_repo import QdrantRepo
@@ -19,4 +17,12 @@ class RecommendationsService:
 
         return recommended_posts
 
+    async def get_thread_score(
+        self,
+        bot_id: int,
+        post_id: int
+    ) -> float:
+        score = await self.qdrant.get_thread_score(bot_id, post_id)
+
+        return score
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
-from app.schemas.embeddings_schema import CreatePostEmbeddingsJob, RetrainUserEmbeddingJob
-from app.services.embeddings_service import PostEmbeddingsService, UserEmbeddingsService
+from app.schemas.embeddings_schema import CreatePostEmbeddingsJob, RetrainUserEmbeddingJob, CreateBotEmbeddingJob
+from app.services.embeddings_service import PostEmbeddingsService, UserEmbeddingsService, BotEmbeddingsService
 
 router = APIRouter(prefix='/embeddings', tags=['embeddings'])
 
@@ -17,6 +17,15 @@ async def create_post_embeddings(
 async def retrain_user_embedding(
     job: RetrainUserEmbeddingJob,
     service: UserEmbeddingsService = Depends()
+):
+    await service.handle_request(job)
+
+    return {'status': 'ok'}
+
+@router.post('/bots/embed')
+async def create_bot_personality_embedding(
+    job: CreateBotEmbeddingJob,
+    service: BotEmbeddingsService = Depends()
 ):
     await service.handle_request(job)
 

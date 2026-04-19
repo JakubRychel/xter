@@ -13,3 +13,7 @@ class RetrainUserEmbeddingJob(BaseJob):
     user_id: int
     post_id: int
     alpha: float
+
+class CreateBotEmbeddingJob(BaseJob):
+    bot_id: int
+    bot_personality: str
