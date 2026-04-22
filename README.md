@@ -1,10 +1,11 @@
 # Xter - Twitter-like App 🐦
 
-[![Python](https://img.shields.io/badge/Python-3.6+-blue.svg)](https://www.python.org/)
-[![Django](https://img.shields.io/badge/Django-4.x-green.svg)](https://www.djangoproject.com/)
-[![React](https://img.shields.io/badge/React-17.x-blue.svg)](https://reactjs.org/)
+[![Python](https://img.shields.io/badge/Python-3.13+-blue.svg)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-6.x-green.svg)](https://www.djangoproject.com/)
+[![React](https://img.shields.io/badge/React-19.x-blue.svg)](https://reactjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-latest-009688.svg)](https://fastapi.tiangolo.com/)
 
-Xter is a social media application inspired by Twitter. It allows users to share short messages and engage with content in real-time. This project replicates the core functionalities of a microblogging platform with a simple and intuitive interface, built using Django for the backend and React for the frontend.
+Xter is a social media application inspired by Twitter/X. It allows users to share short messages, reply in threads, follow other users, receive notifications in real time, and browse both recommended and followed feeds. The project currently uses Django for the main backend, React for the frontend, and a separate FastAPI service for embeddings, recommendations, and bot-related text generation features.
 
 ## Table of Contents 🗺️
 
@@ -20,27 +21,29 @@ Xter is a social media application inspired by Twitter. It allows users to share
 - [Important Links](#important-links-)
 - [Footer](#footer-)
 
-## Overview 📌
-Xter is designed to allow users share their thoughts, ideas and opinions quickly and easily.
+## Overview 📓
+Xter is designed to let users share thoughts and interact through a microblogging-style experience with modern backend services, real-time notifications, and recommendation features.
 
 ## Features ✨
 
-- **User Authentication**: Register, log in, and log out securely. 🔐
-- **Post Creation**: Share short messages with character limits. 📝
-- **Like and Unlike Posts**: Interact with posts by liking them. ❤️
-- **Commenting**: Engage in discussions by adding comments to posts. 💬
-- **Real-time Feed**: View posts from followed users and recommended content. 🏘️
-- **User Profiles**: View user profiles, follow/unfollow users. 👤
-- **Bot Support**: Automated bots generate content and interactions. 🤖
-- **Recommendation Engine**: Algorithm suggests relevant posts based on user interactions.
+- **User Authentication**: Register, log in, log out, refresh tokens, and fetch the current authenticated user. 🔐
+- **Post Creation**: Create posts and replies in discussion threads. 📝
+- **Like Posts**: Interact with posts by liking them. ❤️
+- **Recommended and Followed Feed**: Browse personalized recommendations or posts from followed users. 🌘️
+- **User Profiles**: View profiles, edit profile details, update profile pictures, and change passwords. 👤
+- **Follow System**: Follow and unfollow other users. ➕
+- **Mentions**: Mention users in posts and trigger related notifications. 📣
+- **Real-time Notifications**: Receive notifications via WebSocket for likes, replies, follows, mentions, and followed-user activity. 🔔
+- **Bot Support**: Interact with bots that simulate user behavior and operate with different personalities. 🤖
+- **Recommendation Engine**: Use embeddings and vector search for post recommendations and scoring. 🧠
 
 ## Tech Stack 💻
 
-- **Backend**: Python, Django, Django REST Framework
-- **Frontend**: JavaScript, React, Bootstrap, Axios
-- **Database**: PostgreSQL (configured in `xter/settings.py`)
-- **Other**: Celery (for asynchronous tasks), Redis (for caching and Celery broker)
-- **ML/AI**: Sentence Transformers, Google Gemini API, DeBERTa
+- **Backend**: Python, Django, Django REST Framework, Django Channels, Celery
+- **Frontend**: JavaScript, React, React Router, Bootstrap, Axios, Vite
+- **Database**: PostgreSQL
+- **Other**: Redis, WebSockets, Docker Compose
+- **ML/AI**: FastAPI, Qdrant, FastEmbed, Google Gemini API
 
 ## Installation ⚙️
 
@@ -50,115 +53,181 @@ Xter is designed to allow users share their thoughts, ideas and opinions quickly
    cd xter
    ```
 
-2. **Backend Setup**: 🐍
-   ```bash
-   # Create a virtual environment
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-   # Install dependencies
-   pip install -r requirements.txt
-
-   # Apply migrations
-   python manage.py migrate
-
-   # Create a superuser (admin account)
-   python manage.py createsuperuser
-   ```
-
-3. **Frontend Setup**: ⚛️
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-4. **Environment Variables**: 🔑
-   - Set the `GOOGLE_API_KEY` environment variable for bot functionality. Create `.env` file in the root directory and configure necessary variables.
+2. **Create Environment Variables**: 🔑
+   Create a `.env` file in the root directory and configure the required variables.
 
    ```plaintext
-   GOOGLE_API_KEY=your_google_api_key
+   DJANGO_SECRET_KEY=change-me
+   DJANGO_DEBUG=1
+
+   POSTGRES_DB=xter_db
+   POSTGRES_USER=postgres
+   POSTGRES_PASSWORD=postgres
+   POSTGRES_HOST=database
+   POSTGRES_PORT=5432
+
+   REDIS_HOST=redis
+   REDIS_PORT=6379
+
+   CELERY_BROKER_URL=redis://redis:6379/0
+   CELERY_RESULT_BACKEND=redis://redis:6379/2
+
+   FASTAPI_SERVICES_URL=http://fastapi:8001/v1
+
+   QDRANT_API_KEY=your_qdrant_api_key
+   GEMINI_API_KEY=your_gemini_api_key
    ```
 
-5. **Database Configuration**: 🗄️
-   - The project is configured to use PostgreSQL. Update the `DATABASES` setting in `xter/settings.py` with your PostgreSQL credentials.
+3. **Run with Docker Compose**: 🐳
+   The easiest way to run the full project is with Docker Compose.
 
-   ```python
-   DATABASES = {
-       'default': {
-           'ENGINE': 'django.db.backends.postgresql',
-           'NAME': 'xter_db',
-           'USER': 'postgres',
-           'PASSWORD': 'your_password',
-           'HOST': 'localhost',
-           'PORT': '5434',
-       }
-   }
+   ```bash
+   docker compose up --build
    ```
 
-6. **Run the Application**: ▶️
-   - Start the Django backend:
-     ```bash
-     python manage.py runserver
-     ```
-   - Start the React frontend (in a separate terminal):
-     ```bash
-     cd frontend
-     npm run dev
-     ```
+4. **Apply Migrations**: 🗃️
+   In a separate terminal:
+
+   ```bash
+   docker compose exec backend python manage.py migrate
+   ```
+
+5. **Create a Superuser (Optional)**: 👑
+
+   ```bash
+   docker compose exec backend python manage.py createsuperuser
+   ```
+
+6. **Access the Services**: ▶️
+   - Frontend: `http://localhost:3000`
+   - Django backend: `http://localhost:8000`
+   - FastAPI service: `http://localhost:8001`
+   - Qdrant: `http://localhost:6333`
+
+### Local Development Without Docker 🛠️
+
+- **Backend Setup**:
+  ```bash
+  cd backend
+  python -m venv .venv
+  .venv\Scripts\activate
+  pip install -r requirements.txt
+  python manage.py migrate
+  uvicorn xter.asgi:application --host 0.0.0.0 --port 8000 --reload
+  ```
+
+- **Frontend Setup**:
+  ```bash
+  cd frontend
+  npm install
+  npm run dev
+  ```
+
+- **FastAPI Setup**:
+  ```bash
+  cd fastapi
+  python -m venv .venv
+  .venv\Scripts\activate
+  pip install -r requirements.txt
+  uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+  ```
+
+- **Celery Worker**:
+  ```bash
+  cd backend
+  celery -A xter worker -l info -Q tasks.high,tasks.low,celery
+  ```
 
 ## Usage 🚀
 
-1.  **Access the Application**: Open your browser and go to `http://localhost:8000` for the backend and frontend.
-2.  **Registration and Login**: Register a new account or log in with existing credentials.
-3.  **Start Posting**: Share your thoughts and engage with other users!
+1. **Access the Application**: Open your browser and go to `http://localhost:3000`.
+2. **Registration and Login**: Register a new account or log in with existing credentials.
+3. **Browse Feeds**: Switch between recommended and followed posts.
+4. **Start Posting**: Publish posts, reply to threads, and interact with others.
+5. **Manage Your Profile**: Edit profile information and update your password or profile picture.
+6. **Receive Notifications**: Get live notification updates from platform activity.
+7. **Interact with Bots**: Engage with bots that mimic different user personalities and behaviors on the platform.
 
 ### Running the Bot 🤖
 
-- To start the bot, run the following command:
+- To enable bots, run one of the following commands:
 
   ```bash
-  python manage.py runbots
+  docker compose exec backend python manage.py enablebots --all
+  docker compose exec backend python manage.py enablebots bot_username1 bot_username2
   ```
-This command creates bot users and schedules them to generate content and interact with posts.
+
+- To disable bots, use the analogous commands:
+
+  ```bash
+  docker compose exec backend python manage.py disablebots --all
+  docker compose exec backend python manage.py disablebots bot_username1 bot_username2
+  ```
+
+Bots simulate user activity and can post or interact according to their configured personalities.
 
 ## Project Structure 📂
 
 ```
-├── users/                    # User-related Django app
-├── posts/                    # Post-related Django app
-├── bots/                     # Bot-related Django app
-├── recommendations/          # Recommendation engine Django app
-├── xter/                     # Main Django project
-├── manage.py
+├── backend/                  # Main Django backend
+│   ├── users/                # User-related Django app
+│   ├── posts/                # Post-related Django app
+│   ├── bots/                 # Bot-related Django app
+│   ├── recommendations/      # Recommendation-related Django app logic
+│   ├── notifications/        # Notification system with WebSockets
+│   ├── xter/                 # Main Django project configuration
+│   ├── manage.py
+│   └── requirements.txt
+├── fastapi/                  # FastAPI microservice for AI/recommendations
+│   ├── app/
+│   ├── main.py
+│   └── requirements.txt
 ├── frontend/                 # React frontend
-│   ├── src/                  # React components and services
+│   ├── src/                  # Components, pages, contexts and services
 │   ├── public/
 │   ├── package.json
-│   └── webpack.config.js
+│   └── vite.config.js
+├── compose.yaml              # Multi-service local environment
 └── README.md
 ```
 
 ## API Reference 🔗
 
-The API endpoints are defined using Django REST Framework. Here are some key endpoints:
+The API is split between Django REST Framework and FastAPI services. Here are some key endpoints:
+
+### Django API
 
 - **User Registration**: `POST /api/auth/register/`
 - **User Login**: `POST /api/auth/login/`
 - **User Logout**: `POST /api/auth/logout/`
+- **Token Refresh**: `POST /api/auth/token/refresh/`
 - **Current User**: `GET /api/auth/current-user/`
+- **Edit Profile**: `PATCH /api/user/edit-profile/`
+- **Change Password**: `PATCH /api/user/change-password/`
 - **Posts**: `GET/POST /api/posts/`
-- **Posts Like**: `POST /api/posts/<id>/like/`
-- **Posts Unlike**: `POST /api/posts/<id>/unlike/`
-- **Posts Read**: `POST /api/posts/<id>/read/`
+- **Post Like**: `POST /api/posts/<id>/like/`
+- **Users**: `GET /api/users/<username>/`
 - **Follow User**: `POST /api/users/<username>/follow/`
 - **Unfollow User**: `POST /api/users/<username>/unfollow/`
+- **Notifications**: `GET /api/notifications/`
+- **Mark Notification as Seen**: `POST /api/notifications/<id>/mark_as_seen/`
+- **Mark All Notifications as Seen**: `POST /api/notifications/mark_all_as_seen/`
+
+### WebSocket
+
+- **Notifications Socket**: `ws://localhost:8000/ws/notifications/`
+
+### FastAPI
+
+- **Embeddings for Posts**: `POST /v1/embeddings/posts/embed`
+- **Generate Bot Personality Embedding**: `POST /v1/embeddings/bots/embed`
+- **User Embedding Retraining**: `POST /v1/embeddings/users/retrain`
+- **Generate Text**: `POST /v1/genai/generate-text`
+- **Chat**: `POST /v1/genai/chat`
+- **Get Recommendations**: `POST /v1/recommendations/get`
+- **Score Post Against Bot Personality**: `POST /v1/recommendations/score`
 
 ## To Do 🚧
-
-- Move some tasks/data to redis/celery
-- Add cache for recommended posts
-- Fix auth context at page refresh
-- Write tests
 
 ## License 📜
 

@@ -4,6 +4,8 @@ fastapi-v*/
 # Edit at https://www.toptal.com/developers/gitignore?templates=django
 
 .vscode
+*.code-workspace
+.gitignore
 
 ### Django ###
 # (moved from django/.gitignore) scope some entries to the `django/` app
