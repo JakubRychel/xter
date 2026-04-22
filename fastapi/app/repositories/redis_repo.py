@@ -6,16 +6,19 @@ from contextlib import contextmanager
 from app.core.redis import redis_client
 from app.schemas.embeddings_schema import CreatePostEmbeddingsJob, RetrainUserEmbeddingJob
 
+from app.utils.debug_print import debug_print
+
 KEYS = {
     'embed': {
         'COUNTER': 'embed:counter',
-        'JOBS': 'embed:jobs',
+        'JOBS': 'embed:jobs:{}',
         'QUEUE': 'embed:queue',
         'LOCK': 'embed:lock'
     },
     'retrain': {
         'COUNTER': 'retrain:counter',
-        'JOBS': 'retrain:jobs',
+        'WAITING': 'retrain:waiting:{}',
+        'JOBS': 'retrain:jobs:{}',
         'GLOBAL': 'retrain:global',
         'USER': 'retrain:user:{}',
         'LOCK': 'retrain:lock:{}'
@@ -43,12 +46,14 @@ class RedisRepo:
         if namespace == 'embed':
             self.lock = self._embed_lock
             self.enqueue_job = self._embed_enqueue_job
+            self.embeddings_saved = self._embed_embeddings_saved
             self.get_jobs = self._embed_get_jobs
             self.remove_jobs = self._embed_remove_jobs
 
         if namespace == 'retrain':
             self.lock = self._retrain_lock
             self.enqueue_job = self._retrain_enqueue_job
+            self.set_jobs_ready = self._retrain_set_jobs_ready
             self.get_jobs = self._retrain_get_jobs
             self.remove_jobs = self._retrain_remove_jobs
             self.get_user_ids = self._retrain_get_user_ids
@@ -80,13 +85,14 @@ class RedisRepo:
         data = job.model_dump()
         data['job_id'] = job_id
 
-        print(data)
-
         self.redis.zadd(self.QUEUE, {post_id: job_id})
-        self.redis.hset(self.JOBS, job_id, json.dumps(data))
+        self.redis.set(self.JOBS.format(job_id), json.dumps(data))
 
         if old_job_id is not None:
-            self.redis.hdel(self.JOBS, int(old_job_id))
+            self.redis.delete(self.JOBS.format(int(old_job_id)))
+
+    def _embed_embeddings_saved(self, post_ids: list[int]):
+        self._retrain_set_jobs_ready(*post_ids)
 
     def _embed_get_jobs(self, limit: int = 50) -> list[CreatePostEmbeddingsJob]:
         data = self.redis.zrange(self.QUEUE, 0, limit - 1, withscores=True)
@@ -98,7 +104,7 @@ class RedisRepo:
 
         job_ids = [int(score) for score in scores]
         
-        raw_jobs = self.redis.hmget(self.JOBS, job_ids)
+        raw_jobs = self.redis.mget(*(self.JOBS.format(job_id) for job_id in job_ids))
         jobs = [CreatePostEmbeddingsJob(**json.loads(raw_job)) for raw_job in raw_jobs if raw_job is not None]
 
         return jobs
@@ -110,7 +116,7 @@ class RedisRepo:
         job_ids = [job.job_id for job in jobs]
 
         self.redis.zremrangebyscore(self.QUEUE, min(job_ids), max(job_ids))
-        self.redis.hdel(self.JOBS, *job_ids)
+        self.redis.delete(*(self.JOBS.format(job_id) for job_id in job_ids))
 
 
     @contextmanager
@@ -121,7 +127,6 @@ class RedisRepo:
             acquired = self.redis.set(self.LOCK.format(user_id), 1, nx=True, ex=expire)
 
             if acquired:
-                print(f'Acquired lock for user {user_id}')
                 locked_user_ids.add(user_id)
 
             return acquired
@@ -143,24 +148,45 @@ class RedisRepo:
 
         finally:
             if locked_user_ids:
-                print (f'Releasing locks for users: {locked_user_ids}')
                 self.redis.delete(*(self.LOCK.format(user_id) for user_id in locked_user_ids))
 
     def _retrain_enqueue_job(self, job: RetrainUserEmbeddingJob):
         job_id = self.redis.incr(self.COUNTER)
-
-        user_id = job.user_id
+        post_id = job.post_id
 
         data = job.model_dump()
         data['job_id'] = job_id
 
-        self.redis.zadd(self.USER.format(user_id), {job_id: job_id})
-        self.redis.hset(self.JOBS, job_id, json.dumps(data))
+        self.redis.set(self.JOBS.format(job_id), json.dumps(data))
+        self.redis.sadd(self.WAITING.format(post_id), job_id)
 
-        is_oldest = self.redis.zscore(self.GLOBAL, user_id) is None
+    def _retrain_set_jobs_ready(self, *post_ids: int):
+        waiting_keys = [self.WAITING.format(post_id) for post_id in post_ids]
 
-        if is_oldest:
-            self.redis.zadd(self.GLOBAL, {user_id: job_id})
+        job_ids = self.redis.sunion(*waiting_keys)
+
+        if not job_ids:
+            self.redis.delete(*waiting_keys)
+            return
+
+        raw_jobs = self.redis.mget(*(self.JOBS.format(job_id) for job_id in job_ids))
+        jobs = [RetrainUserEmbeddingJob(**json.loads(raw_job)) for raw_job in raw_jobs if raw_job is not None]
+
+        pipe = self.redis.pipeline()
+
+        for job in jobs:
+            user_id = job.user_id
+            job_id = job.job_id
+
+            pipe.zadd(self.USER.format(user_id), {job_id: job_id})
+
+            is_oldest = self.redis.zscore(self.GLOBAL, user_id) is None
+
+            if is_oldest:
+                pipe.zadd(self.GLOBAL, {user_id: job_id})
+        
+        pipe.delete(*waiting_keys)
+        pipe.execute()
 
     def _retrain_get_jobs(self, user_id: int, limit: int = 50) -> list[RetrainUserEmbeddingJob]:
         data = self.redis.zrange(self.USER.format(user_id), 0, limit - 1, withscores=True)
@@ -172,7 +198,7 @@ class RedisRepo:
 
         job_ids = [int(score) for score in scores]
         
-        raw_jobs = self.redis.hmget(self.JOBS, job_ids)
+        raw_jobs = self.redis.mget(*(self.JOBS.format(job_id) for job_id in job_ids))
         jobs = [RetrainUserEmbeddingJob(**json.loads(raw_job)) for raw_job in raw_jobs if raw_job is not None]
 
         return jobs
@@ -189,7 +215,7 @@ class RedisRepo:
             job_ids = [job.job_id for job in user_jobs]
             
             pipe.zrem(self.USER.format(user_id), *job_ids)
-            pipe.hdel(self.JOBS, *job_ids)
+            pipe.delete(*(self.JOBS.format(job_id) for job_id in job_ids))
 
         pipe.execute()
 

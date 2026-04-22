@@ -3,10 +3,13 @@ import numpy as np
 
 from app.core.config import settings
 from app.core.fastembed import embedder
+from app.core.event_handlers import handle_post_embeddings_created
 from app.repositories.redis_repo import RedisRepo
 from app.repositories.qdrant_repo import QdrantRepo
 from app.schemas.embeddings_schema import CreatePostEmbeddingsJob, RetrainUserEmbeddingJob, CreateBotEmbeddingJob
 from app.utils.embedding_calculator import calculate_retrained_embedding
+
+from app.utils.debug_print import debug_print
 
 
 class PostEmbeddingsService:
@@ -48,7 +51,10 @@ class PostEmbeddingsService:
         for embedding, (post_id, text_type) in zip(embeddings, meta):
             data[post_id]['embeddings'][text_type] = list(embedding)
 
-        await self.qdrant.upsert_post_embeddings(data)
+        saved = await self.qdrant.upsert_post_embeddings(data)
+
+        if saved:
+            await handle_post_embeddings_created(*data.keys())
         
 
     def build_batch(self, limit: int = 50) -> list[CreatePostEmbeddingsJob]:
@@ -75,7 +81,20 @@ class UserEmbeddingsService:
     async def handle_request(self, job: RetrainUserEmbeddingJob):
         self.redis.enqueue_job(job)
 
-        await self.run(user_id=job.user_id)
+        post_id = job.post_id
+
+        post_embeddings_exist = self.qdrant.post_embeddings_exist(post_id)
+
+        if post_embeddings_exist:
+            self.redis.set_jobs_ready(post_id)
+
+            user_id = job.user_id
+
+            await self.run(user_id)
+
+    async def launch(self, *post_ids: int):
+        self.redis.set_jobs_ready(*post_ids)
+        await self.run()
 
     async def run(self, user_id: int | None = None, limit: int = 50):
         batch = self.build_batch(initial_user_id=user_id, limit=limit)

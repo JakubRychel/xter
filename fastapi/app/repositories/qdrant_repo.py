@@ -7,6 +7,8 @@ from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, Fi
 from app.core.qdrant import qdrant_client
 from app.core.config import settings
 
+from app.utils.debug_print import debug_print
+
 class QdrantRepo:
     _instance: ClassVar['QdrantRepo' | None] = None
 
@@ -57,7 +59,7 @@ class QdrantRepo:
         return len(points) > 0
 
 
-    async def upsert_post_embeddings(self, data: dict):
+    async def upsert_post_embeddings(self, data: dict) -> bool:
         points = [
             PointStruct(
                 id=post_id,
@@ -68,10 +70,12 @@ class QdrantRepo:
             ) for post_id, payload in data.items()
         ]
 
-        self.qdrant.upsert(
+        result = self.qdrant.upsert(
             collection_name=self.post_collection,
             points=points
         )
+
+        return result.status in ('completed', 'acknowledged')
 
     async def upsert_user_embeddings(self, data: dict):
         points = [
