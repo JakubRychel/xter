@@ -1,6 +1,7 @@
 from fastapi.concurrency import run_in_threadpool
 from google import genai
 from google.genai import types
+from google.genai.errors import ClientError
 
 from app.core.genai import client
 from app.core.config import settings
@@ -25,17 +26,21 @@ class GenAIService:
         contents: str | list,
         system_instruction: str | None = None
     ) -> str:
-        
-        response = await run_in_threadpool(
-            self.client.models.generate_content,
-            model=self.model,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction
-            ) if system_instruction else None,
-            contents=contents
-        )
+        try:
+            
+            response = await run_in_threadpool(
+                self.client.models.generate_content,
+                model=self.model,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction
+                ) if system_instruction else None,
+                contents=contents
+            )
 
-        return response.text
+            return response.text
+        
+        except ClientError:
+            return ''
 
     async def chat(
         self,
@@ -43,18 +48,21 @@ class GenAIService:
         system_instruction: str | None = None,
         history: list[ChatMessage] | None = None
     ) -> str:
+        try:
+            chat = self.client.chats.create(
+                model=self.model,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction
+                ) if system_instruction else None,
+                history=self._map_history(history) if history else None,
+            )
+
+            response = await run_in_threadpool(
+                chat.send_message,
+                message=message
+            )
+
+            return response.text
         
-        chat = self.client.chats.create(
-            model=self.model,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction
-            ) if system_instruction else None,
-            history=self._map_history(history) if history else None,
-        )
-
-        response = await run_in_threadpool(
-            chat.send_message,
-            message=message
-        )
-
-        return response.text
+        except ClientError:
+            return ''
