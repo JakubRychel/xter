@@ -1,5 +1,5 @@
 from django.utils import timezone
-from django.db.models import Case, When, Value, FloatField
+from django.db.models import Case, When, Value, FloatField, Exists, OuterRef, Count
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from posts.models import Post
@@ -67,7 +67,7 @@ def retrain_user_embedding(user_id, post_id, interaction_type):
 
     retrain_user_embedding_request(user_id, post_id, alpha[interaction_type])
 
-def get_recommended_posts(user_id):
+def get_recommended_posts(user_id, prioritize_unread=True):
     weights = {
         'embedding_score': 0.45,
         'likes_count': 0.2,
@@ -83,15 +83,6 @@ def get_recommended_posts(user_id):
 
     def sigmoid(number, steepness, midpoint):
         return 1 / (1 + np.exp(-steepness * (number - midpoint)))
-    
-    def calculate_score(post, score):
-        return (
-            weights['embedding_score'] * score +
-            weights['likes_count'] * sigmoid(post.liked_by.count(), params['likes_steepness'], params['likes_midpoint']) +
-            weights['comments_count'] * sigmoid(post.replies.count(), params['comments_steepness'], params['comments_midpoint']) +
-            weights['recency'] * np.exp(- (timezone.now() - post.published_at).total_seconds() / (2 * 60 * 60 * 24)) +
-            weights['followed_author'] * (1 if post.author_id in followed_users else 0)
-        )
 
     scores = get_recommended_posts_request(user_id, limit=5000, delta={'days': 150})
 
@@ -100,9 +91,22 @@ def get_recommended_posts(user_id):
 
     post_ids = scores.keys()
 
-    posts = Post.objects.filter(id__in=post_ids)
+    posts = Post.objects.filter(id__in=post_ids).annotate(
+        likes_count=Count('liked_by', distinct=True),
+        replies_count=Count('replies', distinct=True)
+    )
+
     followed_users = User.objects.filter(followers__id=user_id).values_list('id', flat=True)
 
+    def calculate_score(post, score):
+        return (
+            weights['embedding_score'] * score +
+            weights['likes_count'] * sigmoid(post.likes_count, params['likes_steepness'], params['likes_midpoint']) +
+            weights['comments_count'] * sigmoid(post.replies_count, params['comments_steepness'], params['comments_midpoint']) +
+            weights['recency'] * np.exp(- (timezone.now() - post.published_at).total_seconds() / (2 * 60 * 60 * 24)) +
+            weights['followed_author'] * (1 if post.author_id in followed_users else 0)
+        )
+    
     case_order = Case(
         *[
             When(id=post.id, then=Value(calculate_score(post, scores[str(post.id)]))) for post in posts
@@ -110,4 +114,19 @@ def get_recommended_posts(user_id):
         output_field=FloatField()
     )
 
-    return posts.annotate(_order=case_order).order_by('-_order')
+    queryset = posts.annotate(_order=case_order)
+
+    if prioritize_unread:
+        read_subquery = Post.read_by.through.objects.filter(
+            post_id=OuterRef('pk'),
+            user_id=user_id
+        )
+
+        queryset = queryset.annotate(
+            seen=Exists(read_subquery)
+        ).order_by('seen', '-_order')
+
+    else:
+        queryset = queryset.order_by('-_order')
+
+    return queryset

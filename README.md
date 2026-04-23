@@ -229,6 +229,8 @@ The API is split between Django REST Framework and FastAPI services. Here are so
 
 ## To Do 🚧
 
+- Tests
+
 ## License 📜
 
 This project has no license.

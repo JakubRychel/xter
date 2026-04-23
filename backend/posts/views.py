@@ -34,7 +34,7 @@ class PostViewSet(viewsets.ModelViewSet):
             if self.request.user.is_authenticated:
                 recommended_posts = get_recommended_posts(self.request.user.id)
 
-                return list(recommended_posts.exclude(read_by=self.request.user)) + list(recommended_posts.filter(read_by=self.request.user))
+                return recommended_posts
         
         return Post.objects.all()
 
