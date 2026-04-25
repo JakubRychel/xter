@@ -22,19 +22,6 @@ def cosine_similarity(a, b):
     
     return np.dot(a, b) / denom
 
-# def get_thread_alignment(post, personality):
-    
-
-#     posts = get_thread_posts(post)
-#     post_embeddings = [get_or_create_post_embedding(p) for p in posts]
-#     thread_embedding = np.mean(np.array(post_embeddings), axis=0).tolist()
-
-#     personality_embedding = personality.embedding
-
-#     alignment = (cosine_similarity(thread_embedding, personality_embedding) + 1) / 2
-
-#     return alignment
-
 def stringify_post(post):
     return f'''
         Autor: {post.author.displayed_name} (@{post.author.username})
@@ -63,10 +50,8 @@ def build_thread(bot, post, thread=None):
 
     return thread
 
-def generate_post(bot):
-    username = bot.user.username
-    displayed_name = bot.user.displayed_name
-    personality = bot.personality or 'Jesteś neutralnym użytkownikiem.'
+def generate_post(username, displayed_name, personality):
+    personality = personality or 'Jesteś neutralnym użytkownikiem.'
 
     system_instruction = f'''
         Jesteś użytkownikiem portalu Xter podobnego do X/Twittera.
@@ -85,10 +70,8 @@ def generate_post(bot):
 
     return response or None
 
-def generate_reply(bot, post):
-    username = bot.user.username
-    displayed_name = bot.user.displayed_name
-    personality = bot.personality or 'Jesteś neutralnym użytkownikiem.'
+def generate_reply(username, displayed_name, personality, message, thread):
+    personality = personality or 'Jesteś neutralnym użytkownikiem.'
 
     system_instruction = f'''
         Jesteś użytkownikiem portalu Xter podobnego do X/Twittera.
@@ -100,12 +83,10 @@ def generate_reply(bot, post):
         Udzielasz jedno-, dwu- lub trzyzdaniowej odpowiedzi, która jest zgodna z Twoją osobowością. Wygeneruj wyłącznie treść odpowiedzi bez żadnych dodatkowych informacji. Nie zawieraj informacji takich jak data lub nazwa użytkownika bota.
     '''
 
-    thread = build_thread(bot, post)
-
     response = chat_request(
         system_instruction=system_instruction,
         history=thread,
-        message=stringify_post(post)
+        message=message
     )
 
     return response or None

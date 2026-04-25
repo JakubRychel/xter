@@ -135,10 +135,19 @@ def read_feed(bot_id, payload, *args, **kwargs):
     from recommendations.logic import get_recommended_posts
     from .models import Bot
 
-    bot_user = Bot.objects.get(id=bot_id).user
+    bot_user_id = Bot.objects.filter(id=bot_id).values_list('user_id', flat=True).first()
+
+    if not bot_user_id:
+        return
+
     limit = payload.get('limit', 10)
 
-    post_ids = get_recommended_posts(bot_user.id).exclude(read_by=bot_user, author=bot_user).values_list('id', flat=True)[:limit]
+    post_ids = (
+        get_recommended_posts(bot_user_id)
+        .exclude(read_by__id=bot_user_id)
+        .exclude(author=bot_user_id)
+        .values_list('id', flat=True)[:limit]
+    )
 
     for post_id in post_ids:
         push_bot_task(bot_id, 'read_post', {'post_id': post_id})
@@ -152,17 +161,24 @@ def read_post(bot_id, payload, *args, **kwargs):
     from .logic import score_thread
 
     post_id = payload.get('post_id')
-    post = Post.objects.get(id=post_id)
-    bot = Bot.objects.get(id=bot_id)
+    post = Post.objects.filter(id=post_id).first()
 
-    post.read_by.add(bot.user_id)
+    if not post:
+        return
+
+    bot_user_id = Bot.objects.filter(id=bot_id).values_list('user_id', flat=True).first()
+
+    if not bot_user_id:
+        return
+
+    post.read_by.add(bot_user_id)
 
     score = score_thread(bot_id, post_id)
 
     if (score > 0.5):
-        if score + random.random() > 1.2:
-            push_bot_task(bot_id, 'like_post', {'post_id': post_id})
         if score + random.random() > 1.3:
+            push_bot_task(bot_id, 'like_post', {'post_id': post_id})
+        if score + random.random() > 1.5:
             push_bot_task(bot_id, 'reply_to_post', {'post_id': post_id})
 
 @bot_action()
@@ -176,17 +192,36 @@ def write_post(bot_id, payload, *args, **kwargs):
 
     from posts.models import Post
     from .models import Bot
-    from .utils import generate_post, generate_reply
+    from .utils import generate_post, generate_reply, stringify_post, build_thread
 
-    bot = Bot.objects.select_related('user').get(id=bot_id)
+    bot = Bot.objects.filter(id=bot_id).select_related('user').first()
 
-    post = Post.objects.get(id=post_id) if post_id else None
+    if not bot:
+        return
+
+    post = Post.objects.filter(id=post_id).first() if post_id else None
+
+    if not post:
+        return
 
     try:
-        content = generate_reply(bot, post) if post_id else generate_post(bot)
+        username = bot.user.username
+        displayed_name = bot.user.displayed_name
+        personality = bot.personality
 
-        if content is not None:
-            Post.objects.create(author=bot.user, content=content, parent=post)
+        if post_id:
+            message = stringify_post(post)
+            thread = build_thread(bot, post)
+
+            content = generate_reply(username, displayed_name, personality, message, thread)
+
+        else:
+            content = generate_post(username, displayed_name, personality)
+
+        if not content:
+            return
+
+        Post.objects.create(author=bot.user, content=content, parent=post)
 
     except Exception as e:
         print(f'Error generating post/reply for bot {bot_id}: {e}')
@@ -198,12 +233,18 @@ def like_post(bot_id, payload, *args, **kwargs):
     from posts.models import Post
     from .models import Bot
 
-    bot = Bot.objects.get(id=bot_id)
+    bot_user_id = Bot.objects.filter(id=bot_id).values_list('id', flat=True).first()
+
+    if not bot_user_id:
+        return
 
     post_id = payload.get('post_id')
-    post = Post.objects.get(id=post_id)
+    post = Post.objects.filter(id=post_id).first()
 
-    post.liked_by.add(bot.user_id)
+    if not post:
+        return
+
+    post.liked_by.add(bot_user_id)
 
 @bot_action(queue='tasks.high')
 def handle_notification(bot_id, payload, *args, **kwargs):
@@ -212,7 +253,10 @@ def handle_notification(bot_id, payload, *args, **kwargs):
     from notifications.models import Notification
 
     notification_id = payload.get('notification_id')
-    notification = Notification.objects.get(id=notification_id)
+    notification = Notification.objects.filter(id=notification_id).first()
+
+    if not notification:
+        return
 
     if notification.notification_type in [Notification.REPLY, Notification.MENTION, Notification.FOLLOWED_USER_POSTED]:
         related_post = notification.related_post

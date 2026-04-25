@@ -17,6 +17,8 @@ function Feed({ author = null, parent = null, followed = false }) {
 
   const addToFeed = post => {
     setPosts(prev => [post, ...prev]);
+
+    console.log(post);
   };
 
   const updateInFeed = (id, postData) => {
@@ -72,6 +74,8 @@ function Feed({ author = null, parent = null, followed = false }) {
 
     try {
       const data = await getPosts(author, parent, followed, page);
+
+      console.log(data);
 
       setPosts(prev => page === 1 ? data.results : [...prev, ...data.results]);
       setNextPage(page + 1);

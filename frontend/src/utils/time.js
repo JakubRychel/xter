@@ -40,4 +40,6 @@ export const timeAgo = (isoDate) => {
       return `${count} ${formatUnit(count, unit)} temu`;
     }
   }
+
+  return 'przed chwilą';
 }
