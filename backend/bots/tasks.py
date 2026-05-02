@@ -1,7 +1,7 @@
 import random
 from functools import wraps
 from celery import shared_task
-from .queue import *
+from .queue import push_bot_task
 
 
 BOT_TASKS = {}
@@ -11,7 +11,7 @@ BOT_TASKS = {}
 SCHEMATY GENEROWANIA ZADAŃ DLA BOTÓW
 """
 
-def generate_bot_task(bot_id, task_type=None):
+def generate_bot_task(bot_id, task_type=None, rng=random):
     from .models import Bot
 
     mode = Bot.objects.filter(id=bot_id).values_list('mode', flat=True).first()
@@ -40,21 +40,21 @@ def generate_bot_task(bot_id, task_type=None):
     weights = list(config.values())
 
     if not task_type:
-        task_type = random.choices(actions, weights=weights, k=1)[0]
+        task_type = rng.choices(actions, weights=weights, k=1)[0]
 
     item = {
         'type': task_type
     }
 
     if task_type == 'read_feed':
-        limit = random.randint(5, 25)
+        limit = rng.randint(5, 25)
         item['payload'] = {'limit': limit}
 
     elif task_type == 'sleep':
         if mode == Bot.INACTIVE:
-            countdown = random.randint(60*60*5, 60*60*8)
+            countdown = rng.randint(60*60*5, 60*60*8)
         else:
-            countdown = random.randint(300, 1800)
+            countdown = rng.randint(300, 1800)
 
         item['countdown'] = countdown
 
@@ -201,9 +201,6 @@ def write_post(bot_id, payload, *args, **kwargs):
 
     post = Post.objects.filter(id=post_id).first() if post_id else None
 
-    if not post:
-        return
-
     try:
         username = bot.user.username
         displayed_name = bot.user.displayed_name
@@ -230,10 +227,11 @@ def write_post(bot_id, payload, *args, **kwargs):
 def like_post(bot_id, payload, *args, **kwargs):
     print(f'Bot {bot_id} is liking post {payload.get("post_id")}...')
 
+    from django.db import IntegrityError
     from posts.models import Post
     from .models import Bot
 
-    bot_user_id = Bot.objects.filter(id=bot_id).values_list('id', flat=True).first()
+    bot_user_id = Bot.objects.filter(id=bot_id).values_list('user_id', flat=True).first()
 
     if not bot_user_id:
         return
@@ -244,8 +242,12 @@ def like_post(bot_id, payload, *args, **kwargs):
     if not post:
         return
 
-    post.liked_by.add(bot_user_id)
+    try:
+        post.liked_by.add(bot_user_id)
 
+    except IntegrityError:
+        pass
+        
 @bot_action(queue='tasks.high')
 def handle_notification(bot_id, payload, *args, **kwargs):
     print(f'Bot {bot_id} is handling notification {payload.get("notification_id")}...')
