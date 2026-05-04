@@ -1,3 +1,5 @@
+from asgiref.sync import async_to_sync
+
 from django.utils import timezone
 from django.db.models import Case, When, Value, FloatField, Exists, OuterRef, Count
 from django.core.cache import cache
@@ -67,7 +69,7 @@ def retrain_user_embedding(user_id, post_id, interaction_type):
 
     retrain_user_embedding_request(user_id, post_id, alpha[interaction_type])
 
-def get_recommended_posts(user_id, prioritize_unread=True):
+def rerank_posts(scores, user_id, prioritize_unread=True):
     weights = {
         'embedding_score': 0.45,
         'likes_count': 0.2,
@@ -84,11 +86,6 @@ def get_recommended_posts(user_id, prioritize_unread=True):
     def sigmoid(number, steepness, midpoint):
         return 1 / (1 + np.exp(-steepness * (number - midpoint)))
 
-    scores = get_recommended_posts_request(user_id, limit=5000, delta={'days': 150})
-
-    if not scores:
-        return Post.objects.none()
-
     post_ids = scores.keys()
 
     posts = Post.objects.filter(id__in=post_ids).annotate(
@@ -96,7 +93,7 @@ def get_recommended_posts(user_id, prioritize_unread=True):
         replies_count=Count('replies', distinct=True)
     )
 
-    followed_users = User.objects.filter(followers__id=user_id).values_list('id', flat=True)
+    followed_users = set(User.objects.filter(followers__id=user_id).values_list('id', flat=True))
 
     def calculate_score(post, score):
         return (
@@ -130,3 +127,13 @@ def get_recommended_posts(user_id, prioritize_unread=True):
         queryset = queryset.order_by('-_order')
 
     return queryset
+
+def get_recommended_posts(user_id, prioritize_unread=True):
+    scores = async_to_sync(get_recommended_posts_request)(user_id, limit=5000, delta={'days': 150})
+
+    if not scores:
+        return Post.objects.none()
+
+    posts = rerank_posts(scores, user_id, prioritize_unread)
+
+    return posts
