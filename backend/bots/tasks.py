@@ -132,7 +132,8 @@ def sleep(bot_id, *args, **kwargs):
 def read_feed(bot_id, payload, *args, **kwargs):
     print(f'Bot {bot_id} is reading feed...')
 
-    from recommendations.logic import get_recommended_posts
+    from asgiref.sync import async_to_sync
+    from recommendations.logic import get_recommendations
     from .models import Bot
 
     bot_user_id = Bot.objects.filter(id=bot_id).values_list('user_id', flat=True).first()
@@ -142,12 +143,9 @@ def read_feed(bot_id, payload, *args, **kwargs):
 
     limit = payload.get('limit', 10)
 
-    post_ids = (
-        get_recommended_posts(bot_user_id)
-        .exclude(read_by__id=bot_user_id)
-        .exclude(author=bot_user_id)
-        .values_list('id', flat=True)[:limit]
-    )
+    recommendations = async_to_sync(get_recommendations)(bot_user_id)
+
+    post_ids = sorted(recommendations, key=lambda post_id: recommendations[post_id])[:limit]
 
     for post_id in post_ids:
         push_bot_task(bot_id, 'read_post', {'post_id': post_id})

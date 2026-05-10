@@ -1,14 +1,16 @@
 from pydantic import BaseModel
 
-class Delta(BaseModel):
-    days: int | None = None
-    hours: int | None = None
-    minutes: int | None = None
+class TimeRange(BaseModel):
+    start: dict | None = None
+    end: dict | None = None
+
+class RecommendationChunk(BaseModel):
+    limit: int = 5000
+    time_range: TimeRange | None = None
 
 class RecommendationsRequest(BaseModel):
     user_id: int
-    limit: int = 5000
-    delta: Delta = Delta(days=100)
+    chunks: list[RecommendationChunk]
 
 class RecommednationsResponse(BaseModel):
     recommended_posts: dict[int, float]

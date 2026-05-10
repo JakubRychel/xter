@@ -1,9 +1,10 @@
-from asgiref.sync import async_to_sync
+from asgiref.sync import sync_to_async
 
-from django.utils import timezone
-from django.db.models import Case, When, Value, FloatField, Exists, OuterRef, Count
+from datetime import datetime, timezone
+from django.db.models import Case, When
 from django.core.cache import cache
 from django.contrib.auth import get_user_model
+from django.contrib.postgres.aggregates import ArrayAgg
 from posts.models import Post
 from .services import create_post_embeddings_request, retrain_user_embedding_request, get_recommended_posts_request
 import numpy as np
@@ -56,7 +57,10 @@ def create_post_embeddings(post_id):
     thread = collect_thread(post_id)
     thread_content = '\n\n'.join(thread.values_list('content', flat=True))
 
-    create_post_embeddings_request(post_id, timestamp, post_content, thread_content)
+    response = create_post_embeddings_request(post_id, timestamp, post_content, thread_content)
+
+    if response.get('status') == 'ok':
+        Post.objects.filter(id=post_id).update(embeddings_created=True)
 
 def retrain_user_embedding(user_id, post_id, interaction_type):
     alpha = {
@@ -69,7 +73,7 @@ def retrain_user_embedding(user_id, post_id, interaction_type):
 
     retrain_user_embedding_request(user_id, post_id, alpha[interaction_type])
 
-def rerank_posts(scores, user_id, prioritize_unread=True):
+async def rerank_posts(scored_posts, user_id):
     weights = {
         'embedding_score': 0.45,
         'likes_count': 0.2,
@@ -84,56 +88,80 @@ def rerank_posts(scores, user_id, prioritize_unread=True):
     }
 
     def sigmoid(number, steepness, midpoint):
-        return 1 / (1 + np.exp(-steepness * (number - midpoint)))
+        return float(1 / (1 + np.exp(-steepness * (number - midpoint))))
 
-    post_ids = scores.keys()
+    scored_posts = {
+        int(post_id): score for post_id, score in scored_posts.items()
+    }
 
-    posts = Post.objects.filter(id__in=post_ids).annotate(
-        likes_count=Count('liked_by', distinct=True),
-        replies_count=Count('replies', distinct=True)
+    post_ids = scored_posts.keys()
+
+    posts = (
+        Post.objects
+        .filter(id__in=post_ids)
+        .values('id', 'author_id', 'published_at', 'likes_count', 'replies_count', 'read_by')
+        .annotate(read_by_ids=ArrayAgg('read_by__id', default=[]))
     )
 
-    followed_users = set(User.objects.filter(followers__id=user_id).values_list('id', flat=True))
+    followed_users = [user_id async for user_id in User.objects.filter(followers__id=user_id).values_list('id', flat=True)]
+
+    now = datetime.now(timezone.utc)
 
     def calculate_score(post, score):
         return (
-            weights['embedding_score'] * score +
-            weights['likes_count'] * sigmoid(post.likes_count, params['likes_steepness'], params['likes_midpoint']) +
-            weights['comments_count'] * sigmoid(post.replies_count, params['comments_steepness'], params['comments_midpoint']) +
-            weights['recency'] * np.exp(- (timezone.now() - post.published_at).total_seconds() / (2 * 60 * 60 * 24)) +
-            weights['followed_author'] * (1 if post.author_id in followed_users else 0)
+            weights['embedding_score'] * score
+            +
+            weights['likes_count'] * sigmoid(post['likes_count'], params['likes_steepness'], params['likes_midpoint'])
+            +
+            weights['comments_count'] * sigmoid(post['replies_count'], params['comments_steepness'], params['comments_midpoint']) +
+            weights['recency'] * float(np.exp(- (now - post['published_at']).total_seconds() / (2 * 60 * 60 * 24)))
+            +
+            weights['followed_author'] * (1 if post['author_id'] in followed_users else 0)
+            +
+            (0.1 if user_id in post['read_by_ids'] else 0)
         )
     
-    case_order = Case(
-        *[
-            When(id=post.id, then=Value(calculate_score(post, scores[str(post.id)]))) for post in posts
-        ],
-        output_field=FloatField()
-    )
+    reranked_posts = {post['id']: calculate_score(post, scored_posts[post['id']]) async for post in posts}
 
-    queryset = posts.annotate(_order=case_order)
+    return reranked_posts
 
-    if prioritize_unread:
-        read_subquery = Post.read_by.through.objects.filter(
-            post_id=OuterRef('pk'),
-            user_id=user_id
-        )
+async def get_recommendations(user_id: int) -> list[tuple[int, float]]:
+    chunks = [{
+        'limit': 4000,
+        'time_range': {'end': {'days': 7 }}
+    }, {
+        'limit': 800,
+        'time_range': {'start': {'days': 7 }, 'end': {'days': 30 }}
+    }, {
+        'limit': 200,
+        'time_range': {'start': {'days': 30 }}
+    }]
 
-        queryset = queryset.annotate(
-            seen=Exists(read_subquery)
-        ).order_by('seen', '-_order')
+    scored_posts = await get_recommended_posts_request(user_id, chunks=chunks)
 
-    else:
-        queryset = queryset.order_by('-_order')
+    if not scored_posts:
+        return {}
 
-    return queryset
+    reranked_posts = await rerank_posts(scored_posts, user_id)
 
-def get_recommended_posts(user_id, prioritize_unread=True):
-    scores = async_to_sync(get_recommended_posts_request)(user_id, limit=5000, delta={'days': 150})
+    return reranked_posts
 
-    if not scores:
-        return Post.objects.none()
+async def refill_recommendations(user_id: int, limit: int = 25, timestamp: int = None) -> list[tuple[int, float]]:
+    dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    now = datetime.now(timezone.utc)
 
-    posts = rerank_posts(scores, user_id, prioritize_unread)
+    seconds = int((now - dt).total_seconds())
 
-    return posts
+    chunks = [{
+        'limit': limit,
+        'time_range': {'end': {'seconds': seconds }}
+    }]
+
+    scored_posts = await get_recommended_posts_request(user_id, chunks=chunks)
+
+    if not scored_posts:
+        {}
+
+    reranked_posts = await rerank_posts(scored_posts, user_id)
+
+    return reranked_posts

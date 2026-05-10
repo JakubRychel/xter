@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 from heapq import nlargest
 from itertools import chain
@@ -7,7 +8,6 @@ from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, Fi
 from app.core.qdrant import qdrant_client
 from app.core.config import settings
 
-from app.utils.debug_print import debug_print
 
 class QdrantRepo:
     _instance: ClassVar['QdrantRepo' | None] = None
@@ -126,56 +126,69 @@ class QdrantRepo:
         }
     
 
-    async def get_recommendations(self, user_id: int, limit: int, delta: timedelta) -> dict[int, float]:
+    async def get_recommendations(
+        self,
+        user_id: int,
+        chunks: list[tuple[int, tuple[timedelta | None, timedelta | None]]]
+    ) -> dict[int, float]:
+        
         embeddings = await self.get_user_embeddings([user_id])
         user_vector = embeddings.get(user_id, [0] * settings.embeddings_vector_size)
 
         now = datetime.now(timezone.utc)
-        threshold = (now - delta).timestamp()
 
-        post_hits = self.qdrant.query_points(
-            collection_name=self.post_collection,
-            query=user_vector,
-            limit=limit,
-            using='post',
-            query_filter=Filter(
+        tasks = []
+
+        for limit, (start, end) in chunks:
+            range_kwargs = {}
+
+            if start is not None:
+                range_kwargs['lt'] = (now - start).timestamp()
+
+            if end is not None:
+                range_kwargs['gte'] = (now - end).timestamp()
+
+            query_filter = Filter(
                 must=[
                     FieldCondition(
                         key='timestamp',
-                        range=Range(
-                            gte=threshold
-                        )
+                        range=Range(**range_kwargs)
                     )
                 ]
-            )
-        )
+            ) if range_kwargs else None
 
-        thread_hits = self.qdrant.query_points(
-            collection_name=self.post_collection,
-            query=user_vector,
-            limit=limit,
-            using='thread',
-            query_filter=Filter(
-                must=[
-                    FieldCondition(
-                        key='timestamp',
-                        range=Range(
-                            gte=threshold
-                        )
-                    )
-                ]
+            tasks.append(
+                self.qdrant.query_points(
+                    collection_name=self.post_collection,
+                    query=user_vector,
+                    limit=limit,
+                    using='post',
+                    query_filter=query_filter
+                )
             )
-        )
+
+            tasks.append(
+                self.qdrant.query_points(
+                    collection_name=self.post_collection,
+                    query=user_vector,
+                    limit=limit,
+                    using='thread',
+                    query_filter=query_filter
+                )
+            )
+
+        results = tasks
 
         deduped = {}
 
-        for point in chain(post_hits.points, thread_hits.points):
-            if point.score > deduped.get(point.id, 0):
-                deduped[point.id] = point.score
+        for result in results:
+            for point in result.points:
+                if point.score > deduped.get(point.id, 0):
+                    deduped[point.id] = point.score
 
-        result = dict(nlargest(limit, deduped.items(), key=lambda x: x[1]))
+        total_limit = sum(limit for limit, _ in chunks)
 
-        return result
+        return dict(nlargest(total_limit, deduped.items(), key=lambda x: x[1]))
     
     async def get_thread_score(self, bot_id: int, post_id: int) -> float:
         bot_points = self.qdrant.retrieve(
@@ -201,7 +214,7 @@ class QdrantRepo:
             )
         )
 
-        if not post_points:
+        if not post_points.points:
             raise ValueError('Post not found.')
 
         score = post_points.points[0].score

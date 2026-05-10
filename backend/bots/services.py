@@ -1,47 +1,52 @@
 from django.conf import settings
+import requests
 from common.http_client import post
 
-async def generate_text_request(system_instruction, contents):
-    data = await post(
+def generate_text_request(system_instruction, contents):
+    response = requests.post(
         f'{settings.FASTAPI_SERVICES_URL}/genai/generate-text',
         json={
             'system_instruction': system_instruction,
             'contents': contents
-        }
+        },
+        timeout=10
     )
 
-    return data['text']
+    return response.json()['text']
 
-async def chat_request(system_instruction, history, message):
-    data = await post(
+def chat_request(system_instruction, history, message):
+    response = requests.post(
         f'{settings.FASTAPI_SERVICES_URL}/genai/chat',
         json={
             'system_instruction': system_instruction,
             'history': history,
             'message': message
-        }
+        },
+        timeout=10
     )
 
-    return data['text']
+    return response.json()['text']
 
-async def create_bot_embedding_request(bot_id, personality):
-    data = await post(
+def create_bot_embedding_request(bot_id, personality):
+    response = requests.post(
         f'{settings.FASTAPI_SERVICES_URL}/embeddings/bots/embed',
         json={
             'bot_id': bot_id,
             'bot_personality': personality
-        }
+        },
+        timeout=10
     )
 
-    return data
+    return response.json()
 
-async def score_thread_request(bot_id, post_id):
-    data = await post(
+def score_thread_request(bot_id, post_id):
+    response = requests.post(
         f'{settings.FASTAPI_SERVICES_URL}/recommendations/score',
         json={
             'bot_id': bot_id,
             'post_id': post_id
-        }
+        },
+        timeout=10
     )
 
-    return data['score']
+    return response.json()['score']

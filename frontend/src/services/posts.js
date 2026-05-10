@@ -1,6 +1,6 @@
 import api from './api';
 
-export const getPosts = async (author = null, parent = null, followed = false, page = 1) => {
+export const getPosts = async (author = null, parent = null, followed = false, page = null) => {
   const params = new URLSearchParams();
 
   if (author) params.append('author', author);

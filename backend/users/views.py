@@ -30,7 +30,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 key='refresh',
                 value=refresh_token,
                 httponly=True,
-                secure=settings.DEBUG == False,
+                secure=True,
                 samesite='None',
                 path='/api/auth/token/refresh/',
                 max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds()
@@ -60,7 +60,7 @@ class CustomTokenRefreshView(TokenRefreshView):
                 key='refresh',
                 value=new_refresh_token,
                 httponly=True,
-                secure=settings.DEBUG == False,
+                secure=True,
                 samesite='None',
                 path='/api/auth/token/refresh/',
                 max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds()

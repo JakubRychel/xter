@@ -3,14 +3,22 @@ import re
 
 class Post(models.Model):
     author = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='posts')
+
     liked_by = models.ManyToManyField('users.User', related_name='liked_posts', blank=True)
+    likes_count = models.PositiveIntegerField(default=0)
     disliked_by = models.ManyToManyField('users.User', related_name='disliked_posts', blank=True)
+    dislikes_count = models.PositiveIntegerField(default=0)
+
     read_by = models.ManyToManyField('users.User', related_name='read_posts', blank=True)
     content = models.TextField()
     published_at = models.DateTimeField(auto_now_add=True)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True, related_name='replies')
 
+    replies_count = models.PositiveIntegerField(default=0)
+
     mentioned_users = models.ManyToManyField('users.User', related_name='mentions', blank=True)
+
+    embeddings_created = models.BooleanField(default=False)
 
     def set_mentioned_users(self):
         from django.contrib.auth import get_user_model

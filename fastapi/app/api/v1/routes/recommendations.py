@@ -11,12 +11,15 @@ async def get_recommended_posts(
     payload: RecommendationsRequest,
     service: RecommendationsService = Depends()
 ):
-    delta = timedelta(**payload.delta.model_dump(exclude_none=True))
-
     posts = await service.get_recommended_posts(
         payload.user_id,
-        payload.limit,
-        delta
+        [(
+            chunk.limit,
+            (
+                timedelta(**chunk.time_range.start) if chunk.time_range and chunk.time_range.start else None,
+                timedelta(**chunk.time_range.end) if chunk.time_range and chunk.time_range.end else None
+            )
+        ) for chunk in payload.chunks]
     )
 
     return {'recommended_posts': posts}

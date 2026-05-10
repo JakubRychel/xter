@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from adrf import serializers as aserializers
 from .models import Post
 from users.serializers import UserSerializer
 
@@ -7,7 +8,7 @@ class AuthorSerializer(UserSerializer):
     class Meta(UserSerializer.Meta):
         fields = ['id', 'username', 'displayed_name', 'gender', 'profile_picture']
 
-class BasePostSerializer(serializers.ModelSerializer):
+class BasePostSerializer(aserializers.ModelSerializer):
     author_id = serializers.ReadOnlyField(source='author.id')
     author_username = serializers.ReadOnlyField(source='author.username')
     author_displayed_name = serializers.ReadOnlyField(source='author.displayed_name')

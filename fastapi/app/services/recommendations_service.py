@@ -10,10 +10,9 @@ class RecommendationsService:
     async def get_recommended_posts(
         self,
         user_id: int,
-        limit: int,
-        delta: timedelta
+        chunks: list[tuple[int, tuple[timedelta | None, timedelta | None]]]
     ) -> dict[int, float]:
-        recommended_posts = await self.qdrant.get_recommendations(user_id, limit, delta)
+        recommended_posts = await self.qdrant.get_recommendations(user_id, chunks)
 
         return recommended_posts
 
