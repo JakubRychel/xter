@@ -145,7 +145,7 @@ def read_feed(bot_id, payload, *args, **kwargs):
 
     recommendations = async_to_sync(get_recommendations)(bot_user_id)
 
-    post_ids = sorted(recommendations, key=lambda post_id: recommendations[post_id])[:limit]
+    post_ids = sorted(recommendations, key=recommendations.get, reverse=True)[:limit]
 
     for post_id in post_ids:
         push_bot_task(bot_id, 'read_post', {'post_id': post_id})

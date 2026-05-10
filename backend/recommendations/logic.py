@@ -96,14 +96,14 @@ async def rerank_posts(scored_posts, user_id):
 
     post_ids = scored_posts.keys()
 
-    posts = (
+    posts = await sync_to_async(list)(
         Post.objects
         .filter(id__in=post_ids)
         .values('id', 'author_id', 'published_at', 'likes_count', 'replies_count', 'read_by')
         .annotate(read_by_ids=ArrayAgg('read_by__id', default=[]))
     )
 
-    followed_users = [user_id async for user_id in User.objects.filter(followers__id=user_id).values_list('id', flat=True)]
+    followed_users = await sync_to_async(set)(User.objects.filter(followers__id=user_id).values_list('id', flat=True))
 
     now = datetime.now(timezone.utc)
 
@@ -121,11 +121,11 @@ async def rerank_posts(scored_posts, user_id):
             (0.1 if user_id in post['read_by_ids'] else 0)
         )
     
-    reranked_posts = {post['id']: calculate_score(post, scored_posts[post['id']]) async for post in posts}
+    reranked_posts = {post['id']: calculate_score(post, scored_posts[post['id']]) for post in posts}
 
     return reranked_posts
 
-async def get_recommendations(user_id: int) -> list[tuple[int, float]]:
+async def get_recommendations(user_id: int) -> dict[int, float]:
     chunks = [{
         'limit': 4000,
         'time_range': {'end': {'days': 7 }}
@@ -146,7 +146,7 @@ async def get_recommendations(user_id: int) -> list[tuple[int, float]]:
 
     return reranked_posts
 
-async def refill_recommendations(user_id: int, limit: int = 25, timestamp: int = None) -> list[tuple[int, float]]:
+async def refill_recommendations(user_id: int, limit: int = 25, timestamp: int = None) -> dict[int, float]:
     dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
     now = datetime.now(timezone.utc)
 
@@ -160,7 +160,7 @@ async def refill_recommendations(user_id: int, limit: int = 25, timestamp: int =
     scored_posts = await get_recommended_posts_request(user_id, chunks=chunks)
 
     if not scored_posts:
-        {}
+        return {}
 
     reranked_posts = await rerank_posts(scored_posts, user_id)
 
