@@ -66,7 +66,11 @@ function Feed({ author = null, parent = null, followed = false }) {
   };
 
   const loadPosts = async (page = null) => {
-    if (loading || !hasMore) return;
+    console.log('loadPosts odpalone');
+
+    if (loading) return;
+
+    console.log('przeszło');
 
     setLoading(true);
 

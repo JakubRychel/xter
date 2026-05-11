@@ -1,7 +1,5 @@
-from asgiref.sync import sync_to_async
-
-from rest_framework import viewsets, permissions
-from adrf import viewsets as aviewsets, serializers
+from adrf import viewsets
+from rest_framework import permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
@@ -15,13 +13,13 @@ from datetime import datetime, timezone
 class PostPagePagination(PageNumberPagination):
     page_size = 25
 
-class PostViewSet(aviewsets.ModelViewSet):
+class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     pagination_class = PostPagePagination
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
-    async def alist(self, request, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
         parent_id = request.query_params.get('parent_id')
         author = request.query_params.get('author')
         followed = request.query_params.get('followed')
@@ -35,24 +33,22 @@ class PostViewSet(aviewsets.ModelViewSet):
         elif followed is not None and followed.lower() == 'true':
             queryset = Post.objects.filter(author__in=self.request.user.followed_users.all()).order_by('-published_at')
         
-        elif request.user.is_authenticated:
-            return await self._user_feed(request)
-        
         else:
-            queryset = Post.objects.all()
+            queryset = Post.objects.all().order_by('-published_at')
 
-        page = await self.apaginate_queryset(queryset)
+        page = self.paginate_queryset(queryset)
 
         if page is not None:
             serializer = self.get_serializer(page, many=True)
 
-            return self.get_paginated_response(await serializer.adata)
+            return self.get_paginated_response(serializer.data)
         
         serializer = self.get_serializer(queryset, many=True)
 
-        return Response(await serializer.adata)
+        return Response(serializer.data)
   
-    async def _user_feed(self, request):
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    async def live_feed(self, request):
         from common.redis_client import get_aredis
         redis = get_aredis()
 
@@ -71,14 +67,16 @@ class PostViewSet(aviewsets.ModelViewSet):
         snapshot_exists = await redis.exists(FEED)
 
         if not snapshot_exists:
+            timestamp = int(datetime.now(timezone.utc).timestamp())
+
+            await redis.hset(META, 'timestamp', timestamp)
+            await redis.expire(META, 3600)
+
             recommendations = await get_recommendations(user_id)
 
-            await redis.zadd(FEED, recommendations)
-            await redis.expire(FEED, 3600)
-
-            new_timestamp = int(datetime.now(timezone.utc).timestamp())
-            await redis.hset(META, 'timestamp', new_timestamp)
-            await redis.expire(META, 3600)
+            if recommendations:
+                await redis.zadd(FEED, recommendations)
+                await redis.expire(FEED, 3600)
 
         elif page is None:
             seen_ids = await redis.smembers(SEEN)
@@ -96,12 +94,13 @@ class PostViewSet(aviewsets.ModelViewSet):
                 await pipe.execute()
 
             timestamp = int(await redis.hget(META, 'timestamp'))
-            
-            new_timestamp = int(datetime.now(timezone.utc).timestamp())
-            await redis.hset(META, 'timestamp', new_timestamp)
-            await redis.expire(META, 3600)
 
             new_recommendations = await refill_recommendations(user_id, limit=page_size, timestamp=timestamp)
+            
+            new_timestamp = int(datetime.now(timezone.utc).timestamp())
+
+            await redis.hset(META, 'timestamp', new_timestamp)
+            await redis.expire(META, 3600)
 
             if new_recommendations:
                 await redis.zadd(FEED, new_recommendations)
@@ -111,11 +110,25 @@ class PostViewSet(aviewsets.ModelViewSet):
         end = start + page_size - 1
 
         post_ids = await redis.zrevrange(FEED, start, end)
-        post_ids = [int(post_id) for post_id in post_ids]
 
-        if post_ids:
-            await redis.sadd(SEEN, *post_ids)
-            await redis.expire(SEEN, 3600)
+        if not post_ids:
+            queryset = Post.objects.all().order_by('-published_at')
+
+            page_content = await self.apaginate_queryset(queryset)
+
+            if page_content is not None:
+                serializer = self.get_serializer(page_content, many=True)
+
+                return await self.get_apaginated_response(await serializer.adata)
+            
+            serializer = self.get_serializer(queryset, many=True)
+
+            return Response(await serializer.adata)
+
+        post_ids = [int(post_id) for post_id in post_ids]
+        
+        await redis.sadd(SEEN, *post_ids)
+        await redis.expire(SEEN, 3600)
 
         ordering = Case(
             *[
@@ -142,13 +155,16 @@ class PostViewSet(aviewsets.ModelViewSet):
         if not page:
             page = 1
 
+        all = await redis.zrevrange(FEED, 0, -1, withscores=True)
+        print(all, count)
+
         return Response({
             'count': count,
             'next': page + 1 if has_next else None,
             'previous': page -1 if has_previous else None,
             'results': await serializer.adata
         })
-
+    
 
     def perform_create(self, serializer):
         instance = serializer.save(author=self.request.user)

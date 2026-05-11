@@ -3,12 +3,15 @@ import api from './api';
 export const getPosts = async (author = null, parent = null, followed = false, page = null) => {
   const params = new URLSearchParams();
 
+  let path = 'posts/';
+
   if (author) params.append('author', author);
   else if (parent) params.append('parent_id', parent);
-  else if (followed) params.append('followed', 'true');
+  else if (followed) params.append('followed', true);
+  else path += 'live_feed/';
   if (page) params.append('page', page);
 
-  const response = await api.get('posts/' + (params.toString() ? '?' + params.toString() : ''));
+  const response = await api.get(path + (params.toString() ? '?' + params.toString() : ''));
   return response.data;
 };
 

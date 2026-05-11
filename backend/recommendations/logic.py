@@ -109,7 +109,7 @@ async def rerank_posts(scored_posts, user_id):
 
     def calculate_score(post, score):
         return (
-            weights['embedding_score'] * score
+            weights['embedding_score'] * ((score + 1) / 2)
             +
             weights['likes_count'] * sigmoid(post['likes_count'], params['likes_steepness'], params['likes_midpoint'])
             +
@@ -118,7 +118,7 @@ async def rerank_posts(scored_posts, user_id):
             +
             weights['followed_author'] * (1 if post['author_id'] in followed_users else 0)
             +
-            (0.1 if user_id in post['read_by_ids'] else 0)
+            (0 if user_id in post['read_by_ids'] else 1)
         )
     
     reranked_posts = {post['id']: calculate_score(post, scored_posts[post['id']]) for post in posts}
