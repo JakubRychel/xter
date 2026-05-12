@@ -44,3 +44,33 @@ def set_recommendation_params_task():
         'comments_steepness': 0.2,
         'comments_midpoint': median_replies,
     }, None)
+
+@shared_task
+def decay_popularity():
+    from .models import PostMetrics
+    from django.db.models import F, Case, When, Value, FloatField, BooleanField
+
+    DECAY_FACTOR = 0.5 ** (1/48)
+    HOT_THRESHOLD = 1
+
+    PostMetrics.objects.filter(
+        is_hot=True
+    ).update(
+        popularity=Case(
+            When(
+                popularity__lt=1,
+                then=Value(0.0)
+            ),
+            default=F('popularity') * DECAY_FACTOR,
+            output_field=FloatField()
+        ),
+
+        is_hot=Case(
+            When(
+                popularity__lt=HOT_THRESHOLD,
+                then=Value(False)
+            ),
+            default=Value(True),
+            output_field=BooleanField()
+        )
+    )

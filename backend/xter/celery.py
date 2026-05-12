@@ -13,4 +13,8 @@ app.conf.beat_schedule = {
         'task': 'posts.tasks.set_recommendation_params',
         'schedule': crontab(minute=0, hour='*'),
     },
+    'decay-popularity-every-30-minutes': {
+        'task': 'recommendations.tasks.decay_popularity',
+        'schedule': crontab(minute='*/30')
+    }
 }

@@ -99,11 +99,11 @@ async def rerank_posts(scored_posts, user_id):
     posts = await sync_to_async(list)(
         Post.objects
         .filter(id__in=post_ids)
-        .values('id', 'author_id', 'published_at', 'likes_count', 'replies_count', 'read_by')
+        .values('id', 'author_id', 'published_at', 'metrics__likes_count', 'metrics__replies_count', 'read_by')
         .annotate(read_by_ids=ArrayAgg('read_by__id', default=[]))
     )
 
-    followed_users = await sync_to_async(set)(User.objects.filter(followers__id=user_id).values_list('id', flat=True))
+    followed_users = await sync_to_async(set)(User.objects.filter(id=user_id).values_list('id', flat=True))
 
     now = datetime.now(timezone.utc)
 
@@ -111,9 +111,18 @@ async def rerank_posts(scored_posts, user_id):
         return (
             weights['embedding_score'] * ((score + 1) / 2)
             +
-            weights['likes_count'] * sigmoid(post['likes_count'], params['likes_steepness'], params['likes_midpoint'])
+            weights['likes_count'] * sigmoid(
+                post['metrics__likes_count'],
+                params['likes_steepness'],
+                params['likes_midpoint']
+            )
             +
-            weights['comments_count'] * sigmoid(post['replies_count'], params['comments_steepness'], params['comments_midpoint']) +
+            weights['comments_count'] * sigmoid(
+                post['metrics__replies_count'],
+                params['comments_steepness'],
+                params['comments_midpoint']
+            )
+            +
             weights['recency'] * float(np.exp(- (now - post['published_at']).total_seconds() / (2 * 60 * 60 * 24)))
             +
             weights['followed_author'] * (1 if post['author_id'] in followed_users else 0)

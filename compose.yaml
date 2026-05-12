@@ -50,6 +50,17 @@ services:
       - redis
     command: celery -A xter worker -l info -Q tasks.high,tasks.low,celery
 
+  beat:
+    build: ./backend
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env
+    depends_on:
+      - database
+      - redis
+    command: celery -A xter beat -l info
+
   fastapi:
     build: ./fastapi
     volumes:

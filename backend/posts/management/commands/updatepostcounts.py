@@ -3,7 +3,7 @@ from django.db.models import Count
 from ...models import Post
 
 
-def updatepostcounts():
+def update_post_counts():
     posts = Post.objects.annotate(
         calculated_replies_count=Count('replies', distinct=True),
         calculated_likes_count=Count('liked_by', distinct=True),

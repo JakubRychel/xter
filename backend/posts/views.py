@@ -167,10 +167,11 @@ class PostViewSet(viewsets.ModelViewSet):
     
 
     def perform_create(self, serializer):
-        instance = serializer.save(author=self.request.user)
+        instance = Post.create(author=self.request.user, **serializer.validated_data)
 
     def perform_update(self, serializer):
         post = self.get_object()
+
         if post.author != self.request.user and not self.request.user.is_staff:
             raise PermissionDenied('You can edit only your own post.')
         
@@ -187,14 +188,26 @@ class PostViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def like(self, request, pk=None):
         post = self.get_object()
-        post.liked_by.add(request.user)
+        success = post.like(request.user)
+
+        if not success:
+            return Response(
+                {'detail': 'Post already liked.'},
+                status=400
+            )
 
         return Response({'status': 'post_liked'})
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def unlike(self, request, pk=None):
         post = self.get_object()
-        post.liked_by.remove(request.user)
+        success = post.unlike(request.user)
+
+        if not success:
+            return Response(
+                {'detail': 'Post was not liked.'},
+                status=400
+            )
 
         return Response({'status': 'post_unliked'})
     
