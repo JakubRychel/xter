@@ -1,6 +1,8 @@
 from itertools import chain, groupby
 import numpy as np
 
+from app.core.qdrant import qdrant_client
+from app.core.redis import redis_client
 from app.core.config import settings
 from app.core.fastembed import embedder
 from app.core.event_handlers import handle_post_embeddings_created
@@ -9,13 +11,11 @@ from app.repositories.qdrant_repo import QdrantRepo
 from app.schemas.embeddings_schema import CreatePostEmbeddingsJob, RetrainUserEmbeddingJob, CreateBotEmbeddingJob
 from app.utils.embedding_calculator import calculate_retrained_embedding
 
-from app.utils.debug_print import debug_print
-
 
 class PostEmbeddingsService:
     def __init__(self):
-        self.redis = RedisRepo(namespace='embed')
-        self.qdrant = QdrantRepo()
+        self.redis = RedisRepo(redis_client, namespace='embed')
+        self.qdrant = QdrantRepo(qdrant_client)
 
     async def handle_request(self, job: CreatePostEmbeddingsJob):
         self.redis.enqueue_job(job)
@@ -75,8 +75,8 @@ class PostEmbeddingsService:
 
 class UserEmbeddingsService:
     def __init__(self):
-        self.redis = RedisRepo(namespace='retrain')
-        self.qdrant = QdrantRepo()
+        self.redis = RedisRepo(redis_client, namespace='retrain')
+        self.qdrant = QdrantRepo(qdrant_client)
 
     async def handle_request(self, job: RetrainUserEmbeddingJob):
         self.redis.enqueue_job(job)
@@ -161,7 +161,7 @@ class UserEmbeddingsService:
     
 class BotEmbeddingsService:
     def __init__(self):
-        self.qdrant = QdrantRepo()
+        self.qdrant = QdrantRepo(qdrant_client)
 
     async def handle_request(self, job: CreateBotEmbeddingJob):
         await self.embed(job)

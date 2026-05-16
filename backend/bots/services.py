@@ -41,7 +41,7 @@ def create_bot_embedding_request(bot_id, personality):
 
 def score_thread_request(bot_id, post_id):
     response = requests.post(
-        f'{settings.FASTAPI_SERVICES_URL}/recommendations/score',
+        f'{settings.FASTAPI_SERVICES_URL}/recommendations/bot-score',
         json={
             'bot_id': bot_id,
             'post_id': post_id

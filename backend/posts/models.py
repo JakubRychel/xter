@@ -13,7 +13,7 @@ class Post(models.Model):
 
     read_by = models.ManyToManyField('users.User', related_name='read_posts', blank=True)
     content = models.TextField()
-    published_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(auto_now_add=True, db_index=True)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True, related_name='replies')
 
     mentioned_users = models.ManyToManyField('users.User', related_name='mentions', blank=True)

@@ -56,18 +56,15 @@ async def get_recommended_posts_request(user_id, chunks):
         }
     )
     
-    return data['recommended_posts']
+    return data['scored_posts']
 
-def get_post_score_request(user_id, post_id):
-    response = requests.post(
-        f'{settings.FASTAPI_SERVICES_URL}/recommendations/score',
+async def get_post_scores_request(user_id, post_ids):
+    data = await post(
+        f'{settings.FASTAPI_SERVICES_URL}/recommendations/scores',
         json={
             'user_id': user_id,
-            'post_id': post_id
-        },
-        timeout=10  
+            'post_ids': post_ids
+        }
     )
 
-    response.raise_for_status()
-
-    return response.json()['score']
+    return data['scored_posts']

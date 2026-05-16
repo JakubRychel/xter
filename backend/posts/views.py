@@ -167,7 +167,7 @@ class PostViewSet(viewsets.ModelViewSet):
     
 
     def perform_create(self, serializer):
-        instance = Post.create(author=self.request.user, **serializer.validated_data)
+        serializer.instance = Post.create(author=self.request.user, **serializer.validated_data)
 
     def perform_update(self, serializer):
         post = self.get_object()

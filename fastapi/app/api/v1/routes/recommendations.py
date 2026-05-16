@@ -1,17 +1,17 @@
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends
-from app.schemas.recommendations_schema import RecommendationsRequest, RecommednationsResponse, ScoreRequest, ScoreResponse
+from app.schemas.recommendations_schema import RecommendationsRequest, RecommendationsResponse, ScoreRequest, ScoreResponse, PostScoresRequest
 from app.services.recommendations_service import RecommendationsService
 
 router = APIRouter(prefix='/recommendations', tags=['recommendations'])
 
-@router.post('/get', response_model=RecommednationsResponse)
+@router.post('/get', response_model=RecommendationsResponse)
 async def get_recommended_posts(
     payload: RecommendationsRequest,
     service: RecommendationsService = Depends()
 ):
-    posts = await service.get_recommended_posts(
+    results = await service.get_recommended_posts(
         payload.user_id,
         [(
             chunk.limit,
@@ -22,14 +22,26 @@ async def get_recommended_posts(
         ) for chunk in payload.chunks]
     )
 
-    return {'recommended_posts': posts}
+    return {'scored_posts': results}
 
-@router.post('/score', response_model=ScoreResponse)
-async def get_thread_score(
+@router.post('/scores', response_model=RecommendationsResponse)
+async def get_post_scores(
+    payload: PostScoresRequest,
+    service: RecommendationsService = Depends()
+):
+    results = await service.get_post_scores(
+        payload.user_id,
+        payload.post_ids
+    )
+
+    return {'scored_posts': results}
+
+@router.post('/bot-score', response_model=ScoreResponse)
+async def get_thread_score_for_bot(
     payload: ScoreRequest,
     service: RecommendationsService = Depends()
 ):
-    score = await service.get_thread_score(
+    score = await service.get_thread_score_for_bot(
         payload.bot_id,
         payload.post_id
     )

@@ -1,4 +1,5 @@
 from asgiref.sync import sync_to_async
+from itertools import chain
 
 from datetime import datetime, timezone
 from django.db.models import Case, When
@@ -6,7 +7,7 @@ from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.aggregates import ArrayAgg
 from posts.models import Post
-from .services import create_post_embeddings_request, retrain_user_embedding_request, get_recommended_posts_request
+from .services import create_post_embeddings_request, retrain_user_embedding_request, get_recommended_posts_request, get_post_scores_request
 import numpy as np
 
 User = get_user_model()
@@ -134,6 +135,11 @@ async def rerank_posts(scored_posts, user_id):
 
     return reranked_posts
 
+def get_popular_post_ids(limit: int = 1000):
+    post_ids = Post.objects.order_by('-metrics__popularity').values_list('id', flat=True)[:limit]
+
+    return post_ids
+
 async def get_recommendations(user_id: int) -> dict[int, float]:
     chunks = [{
         'limit': 4000,
@@ -146,12 +152,18 @@ async def get_recommendations(user_id: int) -> dict[int, float]:
         'time_range': {'start': {'days': 30 }}
     }]
 
-    scored_posts = await get_recommended_posts_request(user_id, chunks=chunks)
+    scored_recommended_posts = await get_recommended_posts_request(user_id, chunks=chunks)
 
-    if not scored_posts:
+    popular_post_ids = await sync_to_async(list)(get_popular_post_ids())
+
+    scored_popular_posts = await get_post_scores_request(user_id, popular_post_ids)
+
+    posts = scored_recommended_posts | scored_popular_posts
+
+    if not posts:
         return {}
 
-    reranked_posts = await rerank_posts(scored_posts, user_id)
+    reranked_posts = await rerank_posts(posts, user_id)
 
     return reranked_posts
 

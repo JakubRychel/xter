@@ -12,8 +12,12 @@ class RecommendationsRequest(BaseModel):
     user_id: int
     chunks: list[RecommendationChunk]
 
-class RecommednationsResponse(BaseModel):
-    recommended_posts: dict[int, float]
+class RecommendationsResponse(BaseModel):
+    scored_posts: dict[int, float]
+
+class PostScoresRequest(BaseModel):
+    user_id: int
+    post_ids: list[int]
 
 class ScoreRequest(BaseModel):
     bot_id: int

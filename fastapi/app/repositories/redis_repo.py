@@ -1,12 +1,9 @@
 from itertools import groupby
 import json
-from typing import ClassVar
 from contextlib import contextmanager
 
-from app.core.redis import redis_client
 from app.schemas.embeddings_schema import CreatePostEmbeddingsJob, RetrainUserEmbeddingJob
 
-from app.utils.debug_print import debug_print
 
 KEYS = {
     'embed': {
@@ -26,17 +23,7 @@ KEYS = {
 }
 
 class RedisRepo:
-    _instances: ClassVar[dict[str, 'RedisRepo']] = {}
-
-    def __new__(cls, namespace: str):
-        if namespace not in cls._instances:
-            instance = super().__new__(cls)
-            instance._init(namespace)
-            cls._instances[namespace] = instance
-
-        return cls._instances[namespace]
-    
-    def _init(self, namespace: str):
+    def __init__(self, redis_client, namespace: str):
         self.redis = redis_client
         self.namespace = namespace
 
