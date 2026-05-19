@@ -30,14 +30,10 @@ class BasePostSerializer(aserializers.ModelSerializer):
 
 class PostSerializer(BasePostSerializer):
     liked_by = serializers.PrimaryKeyRelatedField(read_only=True, many=True)
-    likes_count = serializers.SerializerMethodField()
 
     parent_id = serializers.PrimaryKeyRelatedField(source='parent', queryset=Post.objects.all(), write_only=True, required=False, allow_null=True)
     parent = BasePostSerializer(read_only=True)
 
     class Meta(BasePostSerializer.Meta):
         model = Post
-        fields = BasePostSerializer.Meta.fields + ['liked_by', 'likes_count', 'parent_id', 'parent']
-
-    def get_likes_count(self, obj):
-        return obj.liked_by.count()
+        fields = BasePostSerializer.Meta.fields + ['liked_by', 'likes_count', 'replies_count', 'parent_id', 'parent']

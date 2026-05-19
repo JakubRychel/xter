@@ -1,6 +1,6 @@
 import re
 from django.db import models, transaction, IntegrityError
-from django.db.models import F, Case, When, Value, BooleanField
+from django.db.models import F
 from recommendations.models import PostMetrics
 
 class Post(models.Model):
@@ -15,6 +15,8 @@ class Post(models.Model):
     content = models.TextField()
     published_at = models.DateTimeField(auto_now_add=True, db_index=True)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True, related_name='replies')
+
+    replies_count = models.PositiveBigIntegerField(default=0)
 
     mentioned_users = models.ManyToManyField('users.User', related_name='mentions', blank=True)
 
@@ -74,6 +76,9 @@ class Post(models.Model):
             self.metrics.handle_unlike()
 
             return True
+        
+    def increment_replies_count(self):
+        type(self).objects.filter(id=self.id).update(replies_count=F('replies_count') + 1)
 
     @classmethod
     def create(cls, author, content, parent=None, **kwargs):
@@ -91,6 +96,7 @@ class Post(models.Model):
             )
 
             if parent:
+                parent.increment_replies_count()
                 parent.metrics.handle_create_reply()
 
             return post

@@ -64,7 +64,7 @@ class PostViewSet(viewsets.ModelViewSet):
         SEEN = f'feed:v1:seen:{user_id}'
         META = f'feed:v1:meta:{user_id}'
 
-        snapshot_exists = await redis.exists(FEED)
+        snapshot_exists = False #await redis.exists(FEED)
 
         if not snapshot_exists:
             timestamp = int(datetime.now(timezone.utc).timestamp())
@@ -156,7 +156,7 @@ class PostViewSet(viewsets.ModelViewSet):
             page = 1
 
         all = await redis.zrevrange(FEED, 0, -1, withscores=True)
-        print(all, count)
+        #print(all, count)
 
         return Response({
             'count': count,

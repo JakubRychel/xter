@@ -7,6 +7,7 @@ from django.core.cache import cache
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.aggregates import ArrayAgg
 from posts.models import Post
+from .models import PostMetrics
 from .services import create_post_embeddings_request, retrain_user_embedding_request, get_recommended_posts_request, get_post_scores_request
 import numpy as np
 
@@ -78,14 +79,15 @@ async def rerank_posts(scored_posts, user_id):
     weights = {
         'embedding_score': 0.45,
         'likes_count': 0.2,
-        'comments_count': 0.1,
+        'replies_count': 0.1,
         'recency': 0.2,
         'followed_author': 0.05,
+        'read_by_user': 1
     }
 
     params = cache.get('recommendation_params') or {
         'likes_steepness': 0.05, 'likes_midpoint': 5,
-        'comments_steepness': 0.1, 'comments_midpoint': 3
+        'replies_steepness': 0.1, 'replies_midpoint': 3
     }
 
     def sigmoid(number, steepness, midpoint):
@@ -100,8 +102,8 @@ async def rerank_posts(scored_posts, user_id):
     posts = await sync_to_async(list)(
         Post.objects
         .filter(id__in=post_ids)
-        .values('id', 'author_id', 'published_at', 'metrics__likes_count', 'metrics__replies_count', 'read_by')
         .annotate(read_by_ids=ArrayAgg('read_by__id', default=[]))
+        .values('id', 'author_id', 'published_at', 'likes_count', 'replies_count', 'read_by_ids')
     )
 
     followed_users = await sync_to_async(set)(User.objects.filter(id=user_id).values_list('id', flat=True))
@@ -109,34 +111,30 @@ async def rerank_posts(scored_posts, user_id):
     now = datetime.now(timezone.utc)
 
     def calculate_score(post, score):
-        return (
-            weights['embedding_score'] * ((score + 1) / 2)
-            +
-            weights['likes_count'] * sigmoid(
-                post['metrics__likes_count'],
-                params['likes_steepness'],
-                params['likes_midpoint']
-            )
-            +
-            weights['comments_count'] * sigmoid(
-                post['metrics__replies_count'],
-                params['comments_steepness'],
-                params['comments_midpoint']
-            )
-            +
-            weights['recency'] * float(np.exp(- (now - post['published_at']).total_seconds() / (2 * 60 * 60 * 24)))
-            +
-            weights['followed_author'] * (1 if post['author_id'] in followed_users else 0)
-            +
-            (0 if user_id in post['read_by_ids'] else 1)
+        embedding_score = (score + 1) / 2
+        likes_count = sigmoid(post['likes_count'], params['likes_steepness'], params['likes_midpoint'])
+        replies_count = sigmoid(post['replies_count'], params['replies_steepness'], params['replies_midpoint'])
+        recency = float(np.exp(- (now - post['published_at']).total_seconds() / (2 * 60 * 60 * 24)))
+        followed_author = 1 if post['author_id'] in followed_users else 0
+        read_by_user = 0 if user_id in post['read_by_ids'] else 1
+
+        score = (
+            weights['embedding_score'] * embedding_score +
+            weights['likes_count'] * likes_count +
+            weights['replies_count'] * replies_count +
+            weights['recency'] * recency +
+            weights['followed_author'] * followed_author +
+            weights['read_by_user'] * read_by_user
         )
+
+        return score
     
     reranked_posts = {post['id']: calculate_score(post, scored_posts[post['id']]) for post in posts}
 
     return reranked_posts
 
 def get_popular_post_ids(limit: int = 1000):
-    post_ids = Post.objects.order_by('-metrics__popularity').values_list('id', flat=True)[:limit]
+    post_ids = PostMetrics.objects.order_by('-popularity').values_list('post_id', flat=True)[:limit]
 
     return post_ids
 

@@ -5,7 +5,6 @@ from django.db.models import F, Case, When, Value, BooleanField
 HOT_THRESHOLD = 1
 
 class PostMetrics(models.Model):
-
     post = models.OneToOneField('posts.Post', on_delete=models.CASCADE, related_name='metrics')
 
     has_embeddings = models.BooleanField(default=False)

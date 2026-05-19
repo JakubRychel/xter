@@ -65,17 +65,13 @@ function Feed({ author = null, parent = null, followed = false }) {
     }));
   };
 
-  const loadPosts = async (page = null) => {
-    console.log('loadPosts odpalone');
-
+  const loadPosts = async (page = 1, signal = null) => {
     if (loading) return;
-
-    console.log('przeszło');
 
     setLoading(true);
 
     try {
-      const data = await getPosts(author, parent, followed, page);
+      const data = await getPosts(author, parent, followed, page, signal);
 
       setPosts(prev => page === 1 ? data.results : [...prev, ...data.results]);
       setNextPage(page + 1);
@@ -84,15 +80,22 @@ function Feed({ author = null, parent = null, followed = false }) {
     }
     catch (error) {
       setError(error.message);
-      setLoading(false);
+      //setLoading(false);
     }
   };
 
   useEffect(() => {
+    const controller = new AbortController();
+
     setPosts([]);
     setNextPage(1);
     setHasMore(true);
-    loadPosts();
+
+    loadPosts(1, controller.signal);
+
+    return () => {
+      controller.abort();
+    };
   }, [author, parent, followed]);
 
   useEffect(() => {

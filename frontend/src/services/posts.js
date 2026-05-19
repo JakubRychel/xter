@@ -1,6 +1,6 @@
 import api from './api';
 
-export const getPosts = async (author = null, parent = null, followed = false, page = null) => {
+export const getPosts = async (author = null, parent = null, followed = false, page = null, signal) => {
   const params = new URLSearchParams();
 
   let path = 'posts/';
@@ -9,9 +9,10 @@ export const getPosts = async (author = null, parent = null, followed = false, p
   else if (parent) params.append('parent_id', parent);
   else if (followed) params.append('followed', true);
   else path += 'live_feed/';
+
   if (page) params.append('page', page);
 
-  const response = await api.get(path + (params.toString() ? '?' + params.toString() : ''));
+  const response = await api.get(path + (params.toString() ? '?' + params.toString() : ''), {signal});
   return response.data;
 };
 

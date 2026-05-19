@@ -8,7 +8,7 @@ from qdrant_client.models import VectorParams, Distance
 
 async def ensure_qdrant_collections(qdrant, vector_size: int):
     if not await qdrant.collection_exists('posts'):
-        qdrant.create_collection(
+        await qdrant.create_collection(
             collection_name='posts',
             vectors_config={
                 'post': VectorParams(size=vector_size, distance=Distance.COSINE),
@@ -17,13 +17,13 @@ async def ensure_qdrant_collections(qdrant, vector_size: int):
         )
 
     if not await qdrant.collection_exists('users'):
-        qdrant.create_collection(
+        await qdrant.create_collection(
             collection_name='users',
             vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
         )
 
     if not await qdrant.collection_exists('bots'):
-        qdrant.create_collection(
+        await qdrant.create_collection(
             collection_name='bots',
             vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
         )

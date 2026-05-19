@@ -5,9 +5,9 @@ from rest_framework.decorators import action
 from rest_framework import generics, permissions, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .serializers import RegisterSerializer, UserSerializer, EditProfileSerializer, ChangePasswordSerializer
-
 
 User = get_user_model()
 
@@ -106,6 +106,9 @@ class UserViewSet(viewsets.ModelViewSet):
     def follow(self, request, username=None):
         request_user = request.user
         user_to_follow = self.get_object()
+
+        if user_to_follow == request_user:
+            raise ValidationError('You cannot follow yourself.')
 
         request_user.followed_users.add(user_to_follow)
 
