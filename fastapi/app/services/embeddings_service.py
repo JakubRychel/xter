@@ -83,7 +83,7 @@ class UserEmbeddingsService:
 
         post_id = job.post_id
 
-        post_embeddings_exist = self.qdrant.post_embeddings_exist(post_id)
+        post_embeddings_exist = await self.qdrant.post_embeddings_exist(post_id)
 
         if post_embeddings_exist:
             self.redis.set_jobs_ready(post_id)

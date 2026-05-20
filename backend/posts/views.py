@@ -188,7 +188,7 @@ class PostViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def like(self, request, pk=None):
         post = self.get_object()
-        success = post.like(request.user)
+        success = post.like(request.user.id)
 
         if not success:
             return Response(
@@ -201,7 +201,7 @@ class PostViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def unlike(self, request, pk=None):
         post = self.get_object()
-        success = post.unlike(request.user)
+        success = post.unlike(request.user.id)
 
         if not success:
             return Response(

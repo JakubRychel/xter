@@ -216,7 +216,7 @@ def write_post(bot_id, payload, *args, **kwargs):
         if not content:
             return
 
-        Post.objects.create(author=bot.user, content=content, parent=post)
+        Post.create(author=bot.user, content=content, parent=post)
 
     except Exception as e:
         print(f'Error generating post/reply for bot {bot_id}: {e}')
@@ -241,7 +241,7 @@ def like_post(bot_id, payload, *args, **kwargs):
         return
 
     try:
-        post.liked_by.add(bot_user_id)
+        post.like(bot_user_id)
 
     except IntegrityError:
         pass

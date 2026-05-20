@@ -40,14 +40,14 @@ class Post(models.Model):
         super().save(*args, **kwargs)
         self.set_mentioned_users()
 
-    def like(self, user):
+    def like(self, user_id):
         through = self.liked_by.through
 
         try:
             with transaction.atomic():
                 through.objects.create(
                     post_id=self.id,
-                    user_id=user.id
+                    user_id=user_id
                 )
 
             type(self).objects.filter(id=self.id).update(likes_count=F('likes_count') + 1)
@@ -59,13 +59,13 @@ class Post(models.Model):
         except IntegrityError:
             return False
 
-    def unlike(self, user):
+    def unlike(self, user_id):
         through = self.liked_by.through
 
         with transaction.atomic():
             deleted, _ = through.objects.filter(
                 post_id=self.id,
-                user_id=user.id
+                user_id=user_id
             ).delete()
 
             if not deleted:

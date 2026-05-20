@@ -64,7 +64,7 @@ def generate_post(username, displayed_name, personality):
 
     contents = 'Napisz jedno-, dwu- lub trzyzdaniowy post, który jest zgodny z Twoją osobowością. Wygeneruj wyłącznie treść posta bez żadnych dodatkowych informacji. Nie zawieraj informacji takich jak data lub nazwa użytkownika bota.'
 
-    response = async_to_sync(generate_text_request)(
+    response = generate_text_request(
         system_instruction=system_instruction,
         contents=contents
     )
@@ -84,7 +84,7 @@ def generate_reply(username, displayed_name, personality, message, thread):
         Udzielasz jedno-, dwu- lub trzyzdaniowej odpowiedzi, która jest zgodna z Twoją osobowością. Wygeneruj wyłącznie treść odpowiedzi bez żadnych dodatkowych informacji. Nie zawieraj informacji takich jak data lub nazwa użytkownika bota.
     '''
 
-    response = async_to_sync(chat_request)(
+    response = chat_request(
         system_instruction=system_instruction,
         history=thread,
         message=message

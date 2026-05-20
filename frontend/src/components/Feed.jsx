@@ -80,7 +80,8 @@ function Feed({ author = null, parent = null, followed = false }) {
     }
     catch (error) {
       setError(error.message);
-      //setLoading(false);
+      
+      if (error.name !== 'CanceledError' || error.code !== 'ERR_CANCELED') setLoading(false);
     }
   };
 
