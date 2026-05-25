@@ -5,7 +5,7 @@ from django.db.models import F, Case, When, Value, BooleanField
 HOT_THRESHOLD = 1
 
 class PostMetrics(models.Model):
-    post = models.OneToOneField('posts.Post', on_delete=models.CASCADE, related_name='metrics')
+    post = models.OneToOneField('posts.Post', on_delete=models.CASCADE, related_name='metrics', primary_key=True)
 
     has_embeddings = models.BooleanField(default=False)
 
@@ -18,7 +18,7 @@ class PostMetrics(models.Model):
     published_at = models.DateTimeField(blank=True, null=True, db_index=True)
 
     def handle_like(self):
-        type(self).objects.filter(id=self.id).update(
+        type(self).objects.filter(post_id=self.post_id).update(
             likes_count=F('likes_count') + 1,
             popularity=F('popularity') + 1,
             is_hot=Case(
@@ -34,7 +34,7 @@ class PostMetrics(models.Model):
         print('liked')
 
     def handle_unlike(self):
-        type(self).objects.filter(id=self.id).update(
+        type(self).objects.filter(post_id=self.post_id).update(
             likes_count=F('likes_count') - 1,
             popularity=F('popularity') - 1,
             is_hot=Case(
@@ -50,7 +50,7 @@ class PostMetrics(models.Model):
         print('unliked')
 
     def handle_create_reply(self):
-        type(self).objects.filter(id=self.id).update(
+        type(self).objects.filter(post_id=self.post_id).update(
             replies_count=F('replies_count') + 1,
             popularity=F('popularity') + 3,
             is_hot=Case(
@@ -66,7 +66,7 @@ class PostMetrics(models.Model):
         print('reply')
 
     def handle_delete_reply(self):
-        type(self).objects.filter(id=self.id).update(
+        type(self).objects.filter(post_id=self.post_id).update(
             replies_count=F('replies_count') - 1,
             popularity=F('popularity') - 3,
             is_hot=Case(

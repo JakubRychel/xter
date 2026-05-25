@@ -10,7 +10,7 @@ function Feed({ author = null, parent = null, followed = false }) {
   const { user } = useAuth();
 
   const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(0);
   const [error, setError] = useState('');
   const [nextPage, setNextPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -68,7 +68,7 @@ function Feed({ author = null, parent = null, followed = false }) {
   const loadPosts = async (page = 1, signal = null) => {
     if (loading) return;
 
-    setLoading(true);
+    setLoading(prev => prev + 1);
 
     try {
       const data = await getPosts(author, parent, followed, page, signal);
@@ -76,13 +76,12 @@ function Feed({ author = null, parent = null, followed = false }) {
       setPosts(prev => page === 1 ? data.results : [...prev, ...data.results]);
       setNextPage(page + 1);
       setHasMore(Boolean(data.next));
-      setLoading(false);
     }
     catch (error) {
       setError(error.message);
-      
-      if (error.name !== 'CanceledError' || error.code !== 'ERR_CANCELED') setLoading(false);
     }
+
+    setLoading(prev => Math.max(0, prev - 1));
   };
 
   useEffect(() => {
@@ -132,7 +131,7 @@ function Feed({ author = null, parent = null, followed = false }) {
         />
       ))}
 
-      {loading && (
+      {!!loading && (
         <div className="text-center my-3">
           <div className="spinner-border" role="status">
             <span className="visually-hidden">Ładowanie...</span>

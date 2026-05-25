@@ -101,11 +101,11 @@ class Post(models.Model):
 
             return post
         
-    def delete(self):
+    def delete(self, *args, **kwargs):
         with transaction.atomic():
             parent = self.parent
 
             if parent:
                 parent.metrics.handle_delete_reply()
 
-            self.delete()
+            super().delete(*args, **kwargs)
