@@ -80,6 +80,9 @@ class Post(models.Model):
     def increment_replies_count(self):
         type(self).objects.filter(id=self.id).update(replies_count=F('replies_count') + 1)
 
+    def decrement_replies_count(self):
+        type(self).objects.filter(id=self.id).update(replies_count=F('replies_count') - 1)
+
     @classmethod
     def create(cls, author, content, parent=None, **kwargs):
         with transaction.atomic():
@@ -106,6 +109,7 @@ class Post(models.Model):
             parent = self.parent
 
             if parent:
+                parent.decrement_replies_count()
                 parent.metrics.handle_delete_reply()
 
             super().delete(*args, **kwargs)
