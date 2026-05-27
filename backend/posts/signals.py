@@ -1,6 +1,8 @@
 from django.db.models.signals import m2m_changed
-from django.dispatch import receiver
+from django.dispatch import receiver, Signal
 from .models import Post
+
+post_liked = Signal()
 
 @receiver(m2m_changed, sender=Post.liked_by.through)
 def mark_post_as_read_on_like(sender, instance, action, pk_set, **kwargs):

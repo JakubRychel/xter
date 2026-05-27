@@ -41,20 +41,24 @@ class Post(models.Model):
         self.set_mentioned_users()
 
     def like(self, user_id):
+        from .signals import post_liked
+
         through = self.liked_by.through
 
         try:
             with transaction.atomic():
                 through.objects.create(
-                    post_id=self.id,
-                    user_id=user_id
+                    user_id=user_id,
+                    post_id=self.id
                 )
 
-            type(self).objects.filter(id=self.id).update(likes_count=F('likes_count') + 1)
+                type(self).objects.filter(id=self.id).update(likes_count=F('likes_count') + 1)
 
-            self.metrics.handle_like()
+                self.metrics.handle_like()
 
-            return True
+                transaction.on_commit(lambda: post_liked.send(sender=through, post_id=self.id, user_id=user_id))
+
+                return True
 
         except IntegrityError:
             return False
@@ -63,7 +67,7 @@ class Post(models.Model):
         through = self.liked_by.through
 
         with transaction.atomic():
-            deleted, _ = through.objects.filter(
+            deleted, _ = self.liked_by.through.objects.filter(
                 post_id=self.id,
                 user_id=user_id
             ).delete()

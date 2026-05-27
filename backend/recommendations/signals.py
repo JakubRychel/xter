@@ -1,16 +1,21 @@
 from django.db.models.signals import m2m_changed, post_save
+from django.db import transaction
 from django.dispatch import receiver
 from posts.models import Post
 from .tasks import create_post_embeddings_task, retrain_user_embedding_task
 
 @receiver(post_save, sender=Post)
 def create_post_embeddings_on_save(sender, instance, created, **kwargs):
-    create_post_embeddings_task.delay(instance.id)
+    transaction.on_commit(
+        lambda: create_post_embeddings_task.delay(instance.id)
+    )
 
 @receiver(post_save, sender=Post)
 def retrain_user_embedding_on_post(sender, instance, created, **kwargs):
     if not instance.parent:
-        retrain_user_embedding_task.delay(instance.author_id, instance.id, 'post')
+        transaction.on_commit(
+            lambda: retrain_user_embedding_task.delay(instance.author_id, instance.id, 'post')
+        )
 
 @receiver(post_save, sender=Post)
 def retrain_user_embedding_on_reply(sender, instance, created, **kwargs):
